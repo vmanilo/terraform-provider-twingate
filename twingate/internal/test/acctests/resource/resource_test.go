@@ -209,7 +209,7 @@ func TestAccTwingateResourceWithInvalidGroupId(t *testing.T) {
 		Steps: []sdk.TestStep{
 			{
 				Config:      createResourceWithInvalidGroupId(networkName, resourceName),
-				ExpectError: regexp.MustCompile("Error: failed to create resource"),
+				ExpectError: regexp.MustCompile("Field 'groupIds' Unable to parse global ID"),
 			},
 		},
 	})
@@ -247,7 +247,7 @@ func TestAccTwingateResourceWithTcpDenyAllPolicy(t *testing.T) {
 				Config: createResourceWithTcpDenyAllPolicy(networkName, groupName, resourceName),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
-					sdk.TestCheckResourceAttr(theResource, tcpPolicy, model.PolicyRestricted),
+					sdk.TestCheckResourceAttr(theResource, tcpPolicy, model.PolicyDenyAll),
 				),
 			},
 			// expecting no changes - empty plan
@@ -304,7 +304,7 @@ func TestAccTwingateResourceWithUdpDenyAllPolicy(t *testing.T) {
 				Config: createResourceWithUdpDenyAllPolicy(remoteNetworkName, groupName, resourceName),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
-					sdk.TestCheckResourceAttr(theResource, udpPolicy, model.PolicyRestricted),
+					sdk.TestCheckResourceAttr(theResource, udpPolicy, model.PolicyDenyAll),
 				),
 			},
 			// expecting no changes - empty plan
@@ -405,7 +405,7 @@ func createResourceWithRestrictedPolicyAndEmptyPortsList(networkName, groupName,
 func TestAccTwingateResourceWithInvalidPortRange(t *testing.T) {
 	remoteNetworkName := test.RandomName()
 	resourceName := test.RandomResourceName()
-	expectedError := regexp.MustCompile("Error: failed to parse protocols port range")
+	expectedError := regexp.MustCompile("failed to parse protocols port range")
 
 	genConfig := func(portRange string) string {
 		return createResourceWithRestrictedPolicyAndPortRange(remoteNetworkName, resourceName, portRange)
@@ -502,6 +502,103 @@ func TestAccTwingateResourcePortReorderingCreatesNoChanges(t *testing.T) {
 			{
 				Config:   createResourceWithPortRange(remoteNetworkName, resourceName, `"82", "83", "80"`),
 				PlanOnly: true,
+				Check: acctests.ComposeTestCheckFunc(
+					sdk.TestCheckResourceAttr(theResource, udpPortsLen, "2"),
+				),
+			},
+			// new changes applied
+			{
+				Config: createResourceWithPortRange(remoteNetworkName, resourceName, `"82-83", "70"`),
+				Check: acctests.ComposeTestCheckFunc(
+					acctests.CheckTwingateResourceExists(theResource),
+					sdk.TestCheckResourceAttr(theResource, firstTCPPort, "70"),
+					sdk.TestCheckResourceAttr(theResource, firstUDPPort, "70"),
+				),
+			},
+		},
+	})
+}
+
+func TestAccTwingateResourcePortsRepresentationChanged(t *testing.T) {
+	const theResource = "twingate_resource.test9"
+	remoteNetworkName := test.RandomName()
+	resourceName := test.RandomResourceName()
+
+	sdk.Test(t, sdk.TestCase{
+		ProtoV6ProviderFactories: acctests.ProviderFactories,
+		PreCheck:                 func() { acctests.PreCheck(t) },
+		CheckDestroy:             acctests.CheckTwingateResourceDestroy,
+		Steps: []sdk.TestStep{
+			{
+				Config: createResourceWithPortRange(remoteNetworkName, resourceName, `"82", "83", "80"`),
+				Check: acctests.ComposeTestCheckFunc(
+					acctests.CheckTwingateResourceExists(theResource),
+					sdk.TestCheckResourceAttr(theResource, tcpPortsLen, "3"),
+				),
+			},
+		},
+	})
+}
+
+func TestAccTwingateResourcePortsNotChanged(t *testing.T) {
+	const theResource = "twingate_resource.test9"
+	remoteNetworkName := test.RandomName()
+	resourceName := test.RandomResourceName()
+
+	sdk.Test(t, sdk.TestCase{
+		ProtoV6ProviderFactories: acctests.ProviderFactories,
+		PreCheck:                 func() { acctests.PreCheck(t) },
+		CheckDestroy:             acctests.CheckTwingateResourceDestroy,
+		Steps: []sdk.TestStep{
+			{
+				Config: createResourceWithPortRange(remoteNetworkName, resourceName, `"82", "83", "80"`),
+				Check: acctests.ComposeTestCheckFunc(
+					acctests.CheckTwingateResourceExists(theResource),
+					sdk.TestCheckResourceAttr(theResource, tcpPortsLen, "3"),
+				),
+			},
+			{
+				PlanOnly: true,
+				Config:   createResourceWithPortRange(remoteNetworkName, resourceName, `"80", "82-83"`),
+				Check: acctests.ComposeTestCheckFunc(
+					acctests.CheckTwingateResourceExists(theResource),
+					sdk.TestCheckResourceAttr(theResource, tcpPortsLen, "2"),
+				),
+			},
+		},
+	})
+}
+
+func TestAccTwingateResourcePortReorderingNoChanges(t *testing.T) {
+	const theResource = "twingate_resource.test9"
+	remoteNetworkName := test.RandomName()
+	resourceName := test.RandomResourceName()
+
+	sdk.Test(t, sdk.TestCase{
+		ProtoV6ProviderFactories: acctests.ProviderFactories,
+		PreCheck:                 func() { acctests.PreCheck(t) },
+		CheckDestroy:             acctests.CheckTwingateResourceDestroy,
+		Steps: []sdk.TestStep{
+			{
+				Config: createResourceWithPortRange(remoteNetworkName, resourceName, `"82", "83", "80"`),
+				Check: acctests.ComposeTestCheckFunc(
+					acctests.CheckTwingateResourceExists(theResource),
+					sdk.TestCheckResourceAttr(theResource, firstTCPPort, "80"),
+					sdk.TestCheckResourceAttr(theResource, firstUDPPort, "80"),
+				),
+			},
+			// no changes
+			{
+				Config:   createResourceWithPortRange(remoteNetworkName, resourceName, `"82-83", "80"`),
+				PlanOnly: true,
+			},
+			// no changes
+			{
+				Config:   createResourceWithPortRange(remoteNetworkName, resourceName, `"82-83", "80"`),
+				PlanOnly: true,
+				Check: acctests.ComposeTestCheckFunc(
+					sdk.TestCheckResourceAttr(theResource, udpPortsLen, "2"),
+				),
 			},
 			// new changes applied
 			{
@@ -623,12 +720,14 @@ func TestAccTwingateResourceImport(t *testing.T) {
 				ResourceName: theResource,
 				ImportStateCheck: acctests.CheckImportState(map[string]string{
 					attr.Address: "acc-test.com.12",
-					tcpPolicy:    model.PolicyRestricted,
-					tcpPortsLen:  "2",
-					firstTCPPort: "80",
-					udpPolicy:    model.PolicyAllowAll,
-					udpPortsLen:  "0",
 				}),
+				Check: acctests.ComposeTestCheckFunc(
+					sdk.TestCheckResourceAttr(theResource, tcpPolicy, model.PolicyRestricted),
+					sdk.TestCheckResourceAttr(theResource, tcpPortsLen, "2"),
+					sdk.TestCheckResourceAttr(theResource, firstTCPPort, "80"),
+					sdk.TestCheckResourceAttr(theResource, udpPolicy, model.PolicyAllowAll),
+					sdk.TestCheckResourceAttr(theResource, udpPortsLen, "0"),
+				),
 			},
 		},
 	})
@@ -826,7 +925,6 @@ func createResource16(networkName, resourceName string, groups, groupsID []strin
 }
 
 func TestAccTwingateResourceAccessServiceAccountsNotAuthoritative(t *testing.T) {
-	t.Parallel()
 	const theResource = "twingate_resource.test17"
 	remoteNetworkName := test.RandomName()
 	resourceName := test.RandomResourceName()
@@ -936,7 +1034,6 @@ func createResource17(networkName, resourceName string, serviceAccounts, service
 }
 
 func TestAccTwingateResourceAccessServiceAccountsAuthoritative(t *testing.T) {
-	t.Parallel()
 	const theResource = "twingate_resource.test13"
 	remoteNetworkName := test.RandomName()
 	resourceName := test.RandomResourceName()
@@ -1053,7 +1150,7 @@ func TestAccTwingateResourceAccessWithEmptyGroups(t *testing.T) {
 		Steps: []sdk.TestStep{
 			{
 				Config:      createResource18(remoteNetworkName, resourceName),
-				ExpectError: regexp.MustCompile("Error: Not enough list items"),
+				ExpectError: regexp.MustCompile("Attribute access\\[0\\].group_ids set must contain at least 1 elements"),
 			},
 		},
 	})
@@ -1100,7 +1197,7 @@ func TestAccTwingateResourceAccessWithEmptyServiceAccounts(t *testing.T) {
 		Steps: []sdk.TestStep{
 			{
 				Config:      createResource19(remoteNetworkName, resourceName),
-				ExpectError: regexp.MustCompile("Error: Not enough list items"),
+				ExpectError: regexp.MustCompile("Attribute access\\[0\\].service_account_ids set must contain at least 1 elements"),
 			},
 		},
 	})
@@ -1147,7 +1244,7 @@ func TestAccTwingateResourceAccessWithEmptyBlock(t *testing.T) {
 		Steps: []sdk.TestStep{
 			{
 				Config:      createResource20(remoteNetworkName, resourceName),
-				ExpectError: regexp.MustCompile("Error: Missing required argument"),
+				ExpectError: regexp.MustCompile("invalid attribute combination"),
 			},
 		},
 	})
@@ -1183,7 +1280,6 @@ func createResource20(networkName, resourceName string) string {
 }
 
 func TestAccTwingateResourceAccessGroupsNotAuthoritative(t *testing.T) {
-	t.Parallel()
 	const theResource = "twingate_resource.test22"
 	remoteNetworkName := test.RandomName()
 	resourceName := test.RandomResourceName()
@@ -1293,7 +1389,6 @@ func createResource22(networkName, resourceName string, groups, groupsID []strin
 }
 
 func TestAccTwingateResourceAccessGroupsAuthoritative(t *testing.T) {
-	t.Parallel()
 	const theResource = "twingate_resource.test23"
 	remoteNetworkName := test.RandomName()
 	resourceName := test.RandomResourceName()
@@ -1745,10 +1840,10 @@ func TestAccTwingateResourceCreateWithAlias(t *testing.T) {
 				),
 			},
 			{
-				// alias attr commented out, means state keeps the same value without changes
+				// alias attr commented out, means it has nil state
 				Config: createResource29WithoutAlias(terraformResourceName, remoteNetworkName, resourceName),
 				Check: acctests.ComposeTestCheckFunc(
-					sdk.TestCheckResourceAttr(theResource, attr.Alias, aliasName),
+					sdk.TestCheckNoResourceAttr(theResource, attr.Alias),
 				),
 			},
 			{

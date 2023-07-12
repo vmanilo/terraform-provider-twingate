@@ -71,6 +71,38 @@ func TestSetDifference(t *testing.T) {
 	}
 }
 
+func TestSetJoin(t *testing.T) {
+	cases := []struct {
+		a        []string
+		b        []string
+		expected []string
+	}{
+		{
+			a:        []string{"1", "2", "3"},
+			b:        []string{"0", "2"},
+			expected: []string{"0", "1", "2", "3"},
+		},
+		{
+			a:        []string{"0", "2", "1", "5"},
+			b:        []string{"1", "2", "3"},
+			expected: []string{"0", "1", "2", "3", "5"},
+		},
+		{
+			a:        []string{"1"},
+			b:        []string{"2"},
+			expected: []string{"1", "2"},
+		},
+	}
+
+	for n, c := range cases {
+		t.Run(fmt.Sprintf("case_%d", n), func(t *testing.T) {
+			actual := setJoin(c.a, c.b)
+
+			assert.ElementsMatch(t, c.expected, actual)
+		})
+	}
+}
+
 func TestStringPtr(t *testing.T) {
 	val := "value"
 	emptyStr := ""

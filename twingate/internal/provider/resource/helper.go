@@ -4,26 +4,15 @@ import (
 	"fmt"
 
 	"github.com/Twingate/terraform-provider-twingate/twingate/internal/utils"
+	tfattr "github.com/hashicorp/terraform-plugin-framework/attr"
 	tfDiag "github.com/hashicorp/terraform-plugin-framework/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-func ErrAttributeSet(err error, attribute string) diag.Diagnostics {
-	return diag.FromErr(fmt.Errorf("error setting %s: %w ", attribute, err))
-}
-
-func castToStrings(a, b interface{}) (string, string) {
-	return a.(string), b.(string)
-}
-
-func convertIDs(data interface{}) []string {
-	return utils.Map[interface{}, string](
-		data.(*schema.Set).List(),
-		func(elem interface{}) string {
-			return elem.(string)
-		},
-	)
+func convertIDs(list types.Set) []string {
+	return utils.Map(list.Elements(), func(item tfattr.Value) string {
+		return item.(types.String).ValueString()
+	})
 }
 
 // setIntersection - for given two sets A and B,
@@ -58,6 +47,17 @@ func setDifference(a, b []string) []string {
 	}
 
 	return result
+}
+
+// setJoin - joins two sets.
+// The join of sets A and set B denoted as A + B.
+// If A = {1, 2, 3, 4} and B = {3, 4, 5, 7}, then the join of sets A and B is given by A + B = {1, 2, 3, 4, 5, 7}.
+func setJoin(a, b []string) []string {
+	result := make([]string, 0, len(a)+len(b))
+	result = append(result, a...)
+	result = append(result, b...)
+
+	return utils.MapKeys(utils.MakeLookupMap(result))
 }
 
 func withDefaultValue(str, defaultValue string) string {
