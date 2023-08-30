@@ -175,6 +175,10 @@ func accessBlock() schema.ListNestedBlock {
 		Description: "Restrict access to certain groups or service accounts",
 		NestedObject: schema.NestedBlockObject{
 			Attributes: map[string]schema.Attribute{
+				attr.SecurityPolicyID: schema.StringAttribute{
+					Optional:    true,
+					Description: "The ID of a twingate_security_policy to use as the access policy for the group IDs in the access block.",
+				},
 				attr.GroupIDs: schema.SetAttribute{
 					Optional:    true,
 					ElementType: types.StringType,
@@ -269,7 +273,13 @@ func (r *twingateResource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}
 
-	if err = r.client.AddResourceAccess(ctx, resource.ID, resource.ServiceAccounts); err != nil {
+	if err = r.client.AddResourceAccess(ctx, resource.ID, resource.ServiceAccounts, nil); err != nil {
+		addErr(&resp.Diagnostics, err, operationCreate, TwingateResource)
+
+		return
+	}
+
+	if err = r.client.AddResourceAccess(ctx, resource.ID, resource.Groups, resource.GroupsSecurityPolicyID); err != nil {
 		addErr(&resp.Diagnostics, err, operationCreate, TwingateResource)
 
 		return
@@ -279,6 +289,24 @@ func (r *twingateResource) Create(ctx context.Context, req resource.CreateReques
 }
 
 func getAccessAttribute(list types.List, attribute string) []string {
+	val := getAccessAttributeVal(list, attribute)
+	if val == nil {
+		return nil
+	}
+
+	return convertIDs(val.(types.Set))
+}
+
+func getAccessSecurityPolicy(list types.List) string {
+	val := getAccessAttributeVal(list, attr.SecurityPolicyID)
+	if val == nil {
+		return ""
+	}
+
+	return val.(types.String).ValueString()
+}
+
+func getAccessAttributeVal(list types.List, attribute string) tfattr.Value {
 	if list.IsNull() || list.IsUnknown() || len(list.Elements()) == 0 {
 		return nil
 	}
@@ -293,7 +321,7 @@ func getAccessAttribute(list types.List, attribute string) []string {
 		return nil
 	}
 
-	return convertIDs(val.(types.Set))
+	return val
 }
 
 func convertResource(plan *resourceModel) (*model.Resource, error) {
@@ -304,8 +332,13 @@ func convertResource(plan *resourceModel) (*model.Resource, error) {
 
 	groupIDs := getAccessAttribute(plan.Access, attr.GroupIDs)
 	serviceAccountIDs := getAccessAttribute(plan.Access, attr.ServiceAccountIDs)
+	groupsSecurityPolicyID := getAccessSecurityPolicy(plan.Access)
 
 	if !plan.Access.IsNull() && groupIDs == nil && serviceAccountIDs == nil {
+		return nil, ErrInvalidAttributeCombination
+	}
+
+	if len(serviceAccountIDs) > 0 && groupsSecurityPolicyID != "" {
 		return nil, ErrInvalidAttributeCombination
 	}
 
@@ -315,6 +348,7 @@ func convertResource(plan *resourceModel) (*model.Resource, error) {
 		Address:                  plan.Address.ValueString(),
 		Protocols:                protocols,
 		Groups:                   groupIDs,
+		GroupsSecurityPolicyID:   optionalString(groupsSecurityPolicyID),
 		ServiceAccounts:          serviceAccountIDs,
 		IsAuthoritative:          convertAuthoritativeFlag(plan.IsAuthoritative),
 		Alias:                    getPlanOptionalStringVal(plan.Alias),
@@ -322,6 +356,14 @@ func convertResource(plan *resourceModel) (*model.Resource, error) {
 		IsBrowserShortcutEnabled: getPlanOptionalBoolVal(plan.IsBrowserShortcutEnabled),
 		SecurityPolicyID:         getPlanOptionalStringVal(plan.SecurityPolicyID),
 	}, nil
+}
+
+func optionalString(s string) *string {
+	if s == "" {
+		return nil
+	}
+
+	return &s
 }
 
 func getPlanOptionalStringVal(planValue types.String) *string {
@@ -539,7 +581,7 @@ func isResourceChanged(plan, state *resourceModel) bool {
 }
 
 func (r *twingateResource) updateResourceAccess(ctx context.Context, plan, state *resourceModel, input *model.Resource) error {
-	idsToDelete, idsToAdd, err := r.getChangedAccessIDs(ctx, plan, state, input)
+	idsToDelete, groupsToAdd, serviceAccountsToAdd, err := r.getChangedAccessIDs(ctx, plan, state, input)
 	if err != nil {
 		return fmt.Errorf("failed to update resource access: %w", err)
 	}
@@ -548,17 +590,22 @@ func (r *twingateResource) updateResourceAccess(ctx context.Context, plan, state
 		return fmt.Errorf("failed to update resource access: %w", err)
 	}
 
-	if err := r.client.AddResourceAccess(ctx, input.ID, idsToAdd); err != nil {
+	if err := r.client.AddResourceAccess(ctx, input.ID, serviceAccountsToAdd, nil); err != nil {
+		return fmt.Errorf("failed to update resource access: %w", err)
+	}
+
+	securityPolicyID := optionalString(getAccessSecurityPolicy(plan.Access))
+	if err := r.client.AddResourceAccess(ctx, input.ID, groupsToAdd, securityPolicyID); err != nil {
 		return fmt.Errorf("failed to update resource access: %w", err)
 	}
 
 	return nil
 }
 
-func (r *twingateResource) getChangedAccessIDs(ctx context.Context, plan, state *resourceModel, resource *model.Resource) ([]string, []string, error) {
+func (r *twingateResource) getChangedAccessIDs(ctx context.Context, plan, state *resourceModel, resource *model.Resource) ([]string, []string, []string, error) {
 	remote, err := r.client.ReadResource(ctx, resource.ID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get changedIDs: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to get changedIDs: %w", err)
 	}
 
 	var oldGroups, oldServiceAccounts []string
@@ -577,7 +624,7 @@ func (r *twingateResource) getChangedAccessIDs(ctx context.Context, plan, state 
 	groupsToAdd := setDifference(resource.Groups, remote.Groups)
 	serviceAccountsToAdd := setDifference(resource.ServiceAccounts, remote.ServiceAccounts)
 
-	return append(groupsToDelete, serviceAccountsToDelete...), append(groupsToAdd, serviceAccountsToAdd...), nil
+	return append(groupsToDelete, serviceAccountsToDelete...), groupsToAdd, serviceAccountsToAdd, nil
 }
 
 func getOldIDsNonAuthoritative(plan, state *resourceModel, attribute string) []string {

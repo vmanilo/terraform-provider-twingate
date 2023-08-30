@@ -63,7 +63,6 @@ func (client *Client) CreateResource(ctx context.Context, input *model.Resource)
 
 	variables := newVars(
 		gqlID(input.RemoteNetworkID, "remoteNetworkId"),
-		gqlIDs(input.Groups, "groupIds"),
 		gqlVar(input.Name, "name"),
 		gqlVar(input.Address, "address"),
 		gqlVar(newProtocolsInput(input.Protocols), "protocols"),
@@ -82,6 +81,7 @@ func (client *Client) CreateResource(ctx context.Context, input *model.Resource)
 
 	resource := response.Entity.ToModel()
 	resource.Groups = input.Groups
+	resource.GroupsSecurityPolicyID = input.GroupsSecurityPolicyID
 	resource.ServiceAccounts = input.ServiceAccounts
 	resource.IsAuthoritative = input.IsAuthoritative
 
@@ -294,7 +294,7 @@ type AccessInput struct {
 	SecurityPolicyID *string `json:"securityPolicyId"`
 }
 
-func (client *Client) AddResourceAccess(ctx context.Context, resourceID string, principalIDs []string) error {
+func (client *Client) AddResourceAccess(ctx context.Context, resourceID string, principalIDs []string, securityPolicyID *string) error {
 	opr := resourceResourceAccess.update()
 
 	if len(principalIDs) == 0 {
@@ -306,7 +306,7 @@ func (client *Client) AddResourceAccess(ctx context.Context, resourceID string, 
 	}
 
 	access := utils.Map(principalIDs, func(id string) AccessInput {
-		return AccessInput{PrincipalID: id}
+		return AccessInput{PrincipalID: id, SecurityPolicyID: securityPolicyID}
 	})
 
 	variables := newVars(
