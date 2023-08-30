@@ -2365,3 +2365,43 @@ func TestAccTwingateResourcePolicyTransitionAllowAllToDenyAll(t *testing.T) {
 		},
 	})
 }
+
+func TestAccTwingateResourceCreateWithSecurityPolicy(t *testing.T) {
+	const terraformResourceName = "test38"
+	theResource := acctests.TerraformResource(terraformResourceName)
+	remoteNetworkName := test.RandomName()
+	resourceName := test.RandomResourceName()
+
+	sdk.Test(t, sdk.TestCase{
+		ProtoV6ProviderFactories: acctests.ProviderFactories,
+		PreCheck:                 func() { acctests.PreCheck(t) },
+		CheckDestroy:             acctests.CheckTwingateResourceDestroy,
+		Steps: []sdk.TestStep{
+			{
+				Config: createResourceOnlyWithSecurityPolicy(terraformResourceName, remoteNetworkName, resourceName),
+				Check: acctests.ComposeTestCheckFunc(
+					acctests.CheckTwingateResourceExists(theResource),
+					sdk.TestCheckResourceAttrWith(theResource, attr.SecurityPolicyID, nonEmptyValue),
+				),
+			},
+		},
+	})
+}
+
+func createResourceOnlyWithSecurityPolicy(terraformResourceName, networkName, resourceName string) string {
+	return fmt.Sprintf(`
+	data "twingate_security_policy" "default" {
+	  name = "Default Policy"
+	}
+
+	resource "twingate_remote_network" "%s" {
+	  name = "%s"
+	}
+	resource "twingate_resource" "%s" {
+	  name = "%s"
+	  address = "acc-test.com"
+	  remote_network_id = twingate_remote_network.%s.id
+	  security_policy_id = data.twingate_security_policy.default.id
+	}
+	`, terraformResourceName, networkName, terraformResourceName, resourceName, terraformResourceName)
+}

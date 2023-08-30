@@ -70,6 +70,7 @@ func (client *Client) CreateResource(ctx context.Context, input *model.Resource)
 		gqlNullable(input.IsVisible, "isVisible"),
 		gqlNullable(input.IsBrowserShortcutEnabled, "isBrowserShortcutEnabled"),
 		gqlNullable(input.Alias, "alias"),
+		gqlNullableID(input.SecurityPolicyID, "securityPolicyId"),
 		cursor(query.CursorAccess),
 		pageLimit(client.pageLimit),
 	)
@@ -180,6 +181,7 @@ func (client *Client) UpdateResource(ctx context.Context, input *model.Resource)
 		gqlNullable(input.IsVisible, "isVisible"),
 		gqlNullable(input.IsBrowserShortcutEnabled, "isBrowserShortcutEnabled"),
 		gqlNullable(input.Alias, "alias"),
+		gqlNullableID(input.SecurityPolicyID, "securityPolicyId"),
 		cursor(query.CursorAccess),
 		pageLimit(client.pageLimit),
 	)
