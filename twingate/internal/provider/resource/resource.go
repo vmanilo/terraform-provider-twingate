@@ -714,6 +714,10 @@ func setState(ctx context.Context, state, reference *resourceModel, resource *mo
 		state.Alias = reference.Alias
 	}
 
+	if !state.SecurityPolicyID.IsNull() || !reference.SecurityPolicyID.IsUnknown() {
+		state.SecurityPolicyID = reference.SecurityPolicyID
+	}
+
 	if !state.Protocols.IsNull() {
 		protocols, diags := convertProtocolsToTerraform(ctx, resource.Protocols, reference.Protocols)
 		diagnostics.Append(diags...)
@@ -728,7 +732,8 @@ func setState(ctx context.Context, state, reference *resourceModel, resource *mo
 	if !state.Access.IsNull() {
 		access, diags := convertAccessBlockToTerraform(ctx, resource,
 			state.Access.Elements()[0].(types.Object).Attributes()[attr.GroupIDs],
-			state.Access.Elements()[0].(types.Object).Attributes()[attr.ServiceAccountIDs])
+			state.Access.Elements()[0].(types.Object).Attributes()[attr.ServiceAccountIDs],
+			state.Access.Elements()[0].(types.Object).Attributes()[attr.SecurityPolicyID])
 
 		diagnostics.Append(diags...)
 
@@ -740,7 +745,7 @@ func setState(ctx context.Context, state, reference *resourceModel, resource *mo
 	}
 }
 
-func convertAccessBlockToTerraform(ctx context.Context, resource *model.Resource, stateGroupIDs, stateServiceAccounts tfattr.Value) (types.List, diag.Diagnostics) {
+func convertAccessBlockToTerraform(ctx context.Context, resource *model.Resource, stateGroupIDs, stateServiceAccounts, stateSecurityPolicyID tfattr.Value) (types.List, diag.Diagnostics) {
 	var diagnostics, diags diag.Diagnostics
 
 	groupIDs, serviceAccountIDs := types.SetNull(types.StringType), types.SetNull(types.StringType)
@@ -762,6 +767,7 @@ func convertAccessBlockToTerraform(ctx context.Context, resource *model.Resource
 	attributes := map[string]tfattr.Value{
 		attr.GroupIDs:          stateGroupIDs,
 		attr.ServiceAccountIDs: stateServiceAccounts,
+		attr.SecurityPolicyID:  stateSecurityPolicyID,
 	}
 
 	if !groupIDs.IsNull() {
@@ -770,6 +776,10 @@ func convertAccessBlockToTerraform(ctx context.Context, resource *model.Resource
 
 	if !serviceAccountIDs.IsNull() {
 		attributes[attr.ServiceAccountIDs] = serviceAccountIDs
+	}
+
+	if resource.GroupsSecurityPolicyID != nil {
+		attributes[attr.SecurityPolicyID] = types.StringPointerValue(resource.GroupsSecurityPolicyID)
 	}
 
 	obj, diags := types.ObjectValue(accessAttributeTypes(), attributes)

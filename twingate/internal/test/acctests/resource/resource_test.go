@@ -2405,3 +2405,58 @@ func createResourceOnlyWithSecurityPolicy(terraformResourceName, networkName, re
 	}
 	`, terraformResourceName, networkName, terraformResourceName, resourceName, terraformResourceName)
 }
+
+func TestAccTwingateResourceWithAccessServiceAccountsAndSecurityPolicy(t *testing.T) {
+	remoteNetworkName := test.RandomName()
+	resourceName := test.RandomResourceName()
+	serviceAccountName := test.RandomName("s39")
+
+	sdk.Test(t, sdk.TestCase{
+		ProtoV6ProviderFactories: acctests.ProviderFactories,
+		PreCheck:                 func() { acctests.PreCheck(t) },
+		CheckDestroy:             acctests.CheckTwingateResourceDestroy,
+		Steps: []sdk.TestStep{
+			{
+				Config:      createResource39(remoteNetworkName, resourceName, createServiceAccount(resourceName, serviceAccountName)),
+				ExpectError: regexp.MustCompile(resource.ErrInvalidAttributeCombination.Error()),
+			},
+		},
+	})
+}
+
+func createResource39(networkName, resourceName string, terraformServiceAccount string) string {
+	return fmt.Sprintf(`
+	data "twingate_security_policy" "default" {
+	  name = "Default Policy"
+	}
+
+	resource "twingate_remote_network" "test39" {
+	  name = "%s"
+	}
+
+	%s
+
+	resource "twingate_resource" "test39" {
+	  name = "%s"
+	  address = "acc-test.com.39"
+	  remote_network_id = twingate_remote_network.test39.id
+	  
+	  protocols {
+	    allow_icmp = true
+	    tcp {
+	      policy = "%s"
+	      ports = ["80", "82-83"]
+	    }
+	    udp {
+	      policy = "%s"
+	    }
+	  }
+
+	  access {
+	    service_account_ids = [%s]
+	    security_policy_id = data.twingate_security_policy.default.id
+	  }
+
+	}
+	`, networkName, terraformServiceAccount, resourceName, model.PolicyRestricted, model.PolicyAllowAll, acctests.TerraformServiceAccount(resourceName)+".id")
+}

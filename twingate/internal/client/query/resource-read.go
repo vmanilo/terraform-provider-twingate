@@ -31,7 +31,8 @@ type Access struct {
 }
 
 type AccessEdge struct {
-	Node Principal
+	Node           Principal
+	SecurityPolicy *gqlSecurityPolicy
 }
 
 type Principal struct {
@@ -82,6 +83,12 @@ func (r gqlResource) ToModel() *model.Resource {
 		switch access.Node.Type {
 		case AccessGroup:
 			resource.Groups = append(resource.Groups, string(access.Node.ID))
+
+			if resource.GroupsSecurityPolicyID == nil && access.SecurityPolicy != nil {
+				id := string(access.SecurityPolicy.ID)
+				resource.GroupsSecurityPolicyID = &id
+			}
+
 		case AccessServiceAccount:
 			resource.ServiceAccounts = append(resource.ServiceAccounts, string(access.Node.ID))
 		}
