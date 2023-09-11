@@ -816,6 +816,10 @@ func convertAccessBlockToTerraformOnImport(ctx context.Context, resource *model.
 		attr.ServiceAccountIDs: serviceAccountIDs,
 	}
 
+	if resource.GroupsSecurityPolicyID != nil {
+		attributes[attr.SecurityPolicyID] = types.StringPointerValue(resource.GroupsSecurityPolicyID)
+	}
+
 	obj, diags := types.ObjectValue(accessAttributeTypes(), attributes)
 	diagnostics.Append(diags...)
 
