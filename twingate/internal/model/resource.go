@@ -41,6 +41,7 @@ func (r Resource) AccessToTerraform() []interface{} {
 	rawMap := make(map[string]interface{})
 	if len(r.Groups) != 0 {
 		rawMap[attr.GroupIDs] = r.Groups
+		rawMap[attr.SecurityPolicyID] = r.GroupsSecurityPolicyID
 	}
 
 	if len(r.ServiceAccounts) != 0 {

@@ -64,12 +64,12 @@ resource "twingate_resource" "resource" {
 
 ### Optional
 
-- `access` (Block List) Restrict access to certain groups or service accounts (see [below for nested schema](#nestedblock--access))
+- `access` (Block List, Max: 1) Restrict access to certain groups or service accounts (see [below for nested schema](#nestedblock--access))
 - `alias` (String) Set a DNS alias address for the Resource. Must be a DNS-valid name string.
 - `is_authoritative` (Boolean) Determines whether assignments in the access block will override any existing assignments. Default is `true`. If set to `false`, assignments made outside of Terraform will be ignored.
 - `is_browser_shortcut_enabled` (Boolean) Controls whether an "Open in Browser" shortcut will be shown for this Resource in the Twingate Client.
 - `is_visible` (Boolean) Controls whether this Resource will be visible in the main Resource list in the Twingate Client.
-- `protocols` (Block List) Restrict access to certain protocols and ports. By default or when this argument is not defined, there is no restriction, and all protocols and ports are allowed. (see [below for nested schema](#nestedblock--protocols))
+- `protocols` (Block List, Max: 1) Restrict access to certain protocols and ports. By default or when this argument is not defined, there is no restriction, and all protocols and ports are allowed. (see [below for nested schema](#nestedblock--protocols))
 - `security_policy_id` (String) The ID of a twingate_security_policy to set as this Resource's Security Policy.
 
 ### Read-Only
@@ -82,17 +82,21 @@ resource "twingate_resource" "resource" {
 Optional:
 
 - `group_ids` (Set of String) List of Group IDs that will have permission to access the Resource.
+- `security_policy_id` (String) The ID of a twingate_security_policy to use as the access policy for the group IDs in the access block.
 - `service_account_ids` (Set of String) List of Service Account IDs that will have permission to access the Resource.
 
 
 <a id="nestedblock--protocols"></a>
 ### Nested Schema for `protocols`
 
+Required:
+
+- `tcp` (Block List, Min: 1, Max: 1) (see [below for nested schema](#nestedblock--protocols--tcp))
+- `udp` (Block List, Min: 1, Max: 1) (see [below for nested schema](#nestedblock--protocols--udp))
+
 Optional:
 
 - `allow_icmp` (Boolean) Whether to allow ICMP (ping) traffic
-- `tcp` (Block List) (see [below for nested schema](#nestedblock--protocols--tcp))
-- `udp` (Block List) (see [below for nested schema](#nestedblock--protocols--udp))
 
 <a id="nestedblock--protocols--tcp"></a>
 ### Nested Schema for `protocols.tcp`
@@ -103,7 +107,7 @@ Required:
 
 Optional:
 
-- `ports` (Set of String) List of port ranges between 1 and 65535 inclusive, in the format `100-200` for a range, or `8080` for a single port
+- `ports` (List of String) List of port ranges between 1 and 65535 inclusive, in the format `100-200` for a range, or `8080` for a single port
 
 
 <a id="nestedblock--protocols--udp"></a>
@@ -115,7 +119,7 @@ Required:
 
 Optional:
 
-- `ports` (Set of String) List of port ranges between 1 and 65535 inclusive, in the format `100-200` for a range, or `8080` for a single port
+- `ports` (List of String) List of port ranges between 1 and 65535 inclusive, in the format `100-200` for a range, or `8080` for a single port
 
 ## Import
 

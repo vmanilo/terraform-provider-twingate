@@ -84,6 +84,7 @@ func (client *Client) CreateResource(ctx context.Context, input *model.Resource)
 	resource.GroupsSecurityPolicyID = input.GroupsSecurityPolicyID
 	resource.ServiceAccounts = input.ServiceAccounts
 	resource.IsAuthoritative = input.IsAuthoritative
+	resource.SecurityPolicyID = input.SecurityPolicyID
 
 	if input.IsVisible == nil {
 		resource.IsVisible = nil
