@@ -164,6 +164,7 @@ func Resource() *schema.Resource { //nolint:funlen
 			attr.SecurityPolicyID: {
 				Type:        schema.TypeString,
 				Optional:    true,
+				Computed:    true,
 				Description: "The ID of a twingate_security_policy to set as this Resource's Security Policy.",
 			},
 			attr.ID: {
