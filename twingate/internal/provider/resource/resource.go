@@ -205,6 +205,7 @@ func resourceCreate(ctx context.Context, resourceData *schema.ResourceData, meta
 			return diag.FromErr(err)
 		}
 	}
+
 	log.Printf("[INFO] Created resource %s", resource.Name)
 
 	return resourceResourceReadHelper(ctx, client, resourceData, resource, nil)
@@ -221,27 +222,8 @@ func resourceUpdate(ctx context.Context, resourceData *schema.ResourceData, meta
 	resource.ID = resourceData.Id()
 
 	if resourceData.HasChange(attr.Access) {
-		idsToDelete, groupsToAdd, serviceAccountsToAdd, err := getChangedAccessIDs(ctx, resourceData, resource, client)
-		if err != nil {
-			return diag.FromErr(err)
-		}
-
-		if err := client.RemoveResourceAccess(ctx, resource.ID, idsToDelete); err != nil {
-			return diag.FromErr(err)
-		}
-
-		if resource.GroupsSecurityPolicyID == nil {
-			if err = client.AddResourceAccess(ctx, resource.ID, append(serviceAccountsToAdd, groupsToAdd...), nil); err != nil {
-				return diag.FromErr(err)
-			}
-		} else {
-			if err = client.AddResourceAccess(ctx, resource.ID, serviceAccountsToAdd, nil); err != nil {
-				return diag.FromErr(err)
-			}
-
-			if err = client.AddResourceAccess(ctx, resource.ID, groupsToAdd, resource.GroupsSecurityPolicyID); err != nil {
-				return diag.FromErr(err)
-			}
+		if diagErr := updateResourceAccess(ctx, resource, resourceData, meta); diagErr.HasError() {
+			return diagErr
 		}
 	}
 
@@ -267,6 +249,35 @@ func resourceUpdate(ctx context.Context, resourceData *schema.ResourceData, meta
 	log.Printf("[INFO] Updated resource %s", resource.Name)
 
 	return resourceResourceReadHelper(ctx, client, resourceData, resource, err)
+}
+
+func updateResourceAccess(ctx context.Context, resource *model.Resource, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	client := meta.(*client.Client)
+
+	idsToDelete, groupsToAdd, serviceAccountsToAdd, err := getChangedAccessIDs(ctx, resourceData, resource, client)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	if err := client.RemoveResourceAccess(ctx, resource.ID, idsToDelete); err != nil {
+		return diag.FromErr(err)
+	}
+
+	if resource.GroupsSecurityPolicyID == nil {
+		if err = client.AddResourceAccess(ctx, resource.ID, append(serviceAccountsToAdd, groupsToAdd...), nil); err != nil {
+			return diag.FromErr(err)
+		}
+	} else {
+		if err = client.AddResourceAccess(ctx, resource.ID, serviceAccountsToAdd, nil); err != nil {
+			return diag.FromErr(err)
+		}
+
+		if err = client.AddResourceAccess(ctx, resource.ID, groupsToAdd, resource.GroupsSecurityPolicyID); err != nil {
+			return diag.FromErr(err)
+		}
+	}
+
+	return nil
 }
 
 func resourceRead(ctx context.Context, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
@@ -381,12 +392,7 @@ func readDiagnostics(resourceData *schema.ResourceData, resource *model.Resource
 		}
 	}
 
-	var alias interface{}
-	if resource.Alias != nil {
-		alias = *resource.Alias
-	}
-
-	if err := resourceData.Set(attr.Alias, alias); err != nil {
+	if err := resourceData.Set(attr.Alias, resource.Alias); err != nil {
 		return ErrAttributeSet(err, attr.Alias)
 	}
 
@@ -570,6 +576,7 @@ func convertAccess(data *schema.ResourceData) ([]string, []string, *string) {
 	rawMap := rawList[0].(map[string]interface{})
 
 	var securityPolicyID *string
+
 	rawVal := rawMap[attr.SecurityPolicyID]
 	if rawVal != nil {
 		if val, ok := rawVal.(string); ok {
