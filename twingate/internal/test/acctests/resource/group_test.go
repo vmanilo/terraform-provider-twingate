@@ -1,7 +1,6 @@
 package resource
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 
@@ -48,11 +47,14 @@ func TestAccTwingateGroupCreateUpdate(t *testing.T) {
 }
 
 func terraformResourceTwingateGroup(terraformResourceName, name string) string {
-	return fmt.Sprintf(`
-	resource "twingate_group" "%s" {
-	  name = "%s"
+	return acctests.Nprintf(`
+	resource "twingate_group" "%{group_resource}" {
+	  name = "%{group_name}"
 	}
-	`, terraformResourceName, name)
+	`, map[string]interface{}{
+		"group_resource": terraformResourceName,
+		"group_name":     name,
+	})
 }
 
 func TestAccTwingateGroupDeleteNonExisting(t *testing.T) {
@@ -156,12 +158,17 @@ func TestAccTwingateGroupWithSecurityPolicy(t *testing.T) {
 }
 
 func terraformResourceTwingateGroupWithSecurityPolicy(terraformResourceName, name, securityPolicyID string) string {
-	return fmt.Sprintf(`
-	resource "twingate_group" "%s" {
-	  name = "%s"
-	  security_policy_id = "%s"
+	return acctests.Nprintf(`
+	resource "twingate_group" "%{group_resource}" {
+	  name = "%{group_name}"
+	  security_policy_id = "%{security_policy_id}"
 	}
-	`, terraformResourceName, name, securityPolicyID)
+	`,
+		map[string]interface{}{
+			"group_resource":     terraformResourceName,
+			"group_name":         name,
+			"security_policy_id": securityPolicyID,
+		})
 }
 
 func TestAccTwingateGroupUsersAuthoritativeByDefault(t *testing.T) {
@@ -255,26 +262,39 @@ func TestAccTwingateGroupUsersAuthoritativeByDefault(t *testing.T) {
 }
 
 func terraformResourceTwingateGroupWithUsers(terraformResourceName, name string, users, usersID []string) string {
-	return fmt.Sprintf(`
-	%s
+	return acctests.Nprintf(`
+	%{users}
 
-	resource "twingate_group" "%s" {
-	  name = "%s"
-	  user_ids = [%s]
+	resource "twingate_group" "%{group_resource}" {
+	  name = "%{group_name}"
+	  user_ids = [%{user_ids}]
 	}
-	`, strings.Join(users, "\n"), terraformResourceName, name, strings.Join(usersID, ", "))
+	`,
+		map[string]interface{}{
+			"users":          strings.Join(users, "\n"),
+			"group_resource": terraformResourceName,
+			"group_name":     name,
+			"user_ids":       strings.Join(usersID, ", "),
+		})
 }
 
 func terraformResourceTwingateGroupWithUsersAuthoritative(terraformResourceName, name string, users, usersID []string, authoritative bool) string {
-	return fmt.Sprintf(`
-	%s
+	return acctests.Nprintf(`
+	%{users}
 
-	resource "twingate_group" "%s" {
-	  name = "%s"
-	  user_ids = [%s]
-	  is_authoritative = %v
+	resource "twingate_group" "%{group_resource}" {
+	  name = "%{group_name}"
+	  user_ids = [%{user_ids}]
+	  is_authoritative = %{authoritative}
 	}
-	`, strings.Join(users, "\n"), terraformResourceName, name, strings.Join(usersID, ", "), authoritative)
+	`,
+		map[string]interface{}{
+			"users":          strings.Join(users, "\n"),
+			"group_resource": terraformResourceName,
+			"group_name":     name,
+			"user_ids":       strings.Join(usersID, ", "),
+			"authoritative":  authoritative,
+		})
 }
 
 func TestAccTwingateGroupUsersNotAuthoritative(t *testing.T) {
@@ -352,13 +372,13 @@ func TestAccTwingateGroupUsersCursor(t *testing.T) {
 			CheckDestroy:             acctests.CheckTwingateGroupDestroy,
 			Steps: []sdk.TestStep{
 				{
-					Config: terraformResourceTwingateGroupAndUsers(terraformResourceName, groupName, users, userIDs),
+					Config: terraformResourceTwingateGroupWithUsers(terraformResourceName, groupName, users, userIDs),
 					Check: acctests.ComposeTestCheckFunc(
 						acctests.CheckGroupUsersLen(theResource, len(users)),
 					),
 				},
 				{
-					Config: terraformResourceTwingateGroupAndUsers(terraformResourceName, groupName, users[:2], userIDs[:2]),
+					Config: terraformResourceTwingateGroupWithUsers(terraformResourceName, groupName, users[:2], userIDs[:2]),
 					Check: acctests.ComposeTestCheckFunc(
 						acctests.CheckGroupUsersLen(theResource, 2),
 					),
@@ -366,15 +386,4 @@ func TestAccTwingateGroupUsersCursor(t *testing.T) {
 			},
 		})
 	})
-}
-
-func terraformResourceTwingateGroupAndUsers(terraformResourceName, name string, users, userIDs []string) string {
-	return fmt.Sprintf(`
-	%s
-
-	resource "twingate_group" "%s" {
-	  name = "%s"
-	  user_ids = [%s]
-	}
-	`, strings.Join(users, "\n"), terraformResourceName, name, strings.Join(userIDs, ", "))
 }
