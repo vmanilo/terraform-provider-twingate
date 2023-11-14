@@ -17,7 +17,7 @@ var (
 
 func TestAccTwingateGroupCreateUpdate(t *testing.T) {
 	t.Run("Test Twingate Resource : Acc Group Create/Update", func(t *testing.T) {
-		const terraformResourceName = "test001"
+		terraformResourceName := test.RandomGroupName()
 		theResource := acctests.TerraformGroup(terraformResourceName)
 		nameBefore := test.RandomName()
 		nameAfter := test.RandomName()
@@ -59,7 +59,7 @@ func terraformResourceTwingateGroup(terraformResourceName, name string) string {
 
 func TestAccTwingateGroupDeleteNonExisting(t *testing.T) {
 	t.Run("Test Twingate Resource : Acc Group Delete NonExisting", func(t *testing.T) {
-		const terraformResourceName = "test002"
+		terraformResourceName := test.RandomGroupName()
 		theResource := acctests.TerraformGroup(terraformResourceName)
 		groupName := test.RandomName()
 
@@ -82,7 +82,7 @@ func TestAccTwingateGroupDeleteNonExisting(t *testing.T) {
 
 func TestAccTwingateGroupReCreateAfterDeletion(t *testing.T) {
 	t.Run("Test Twingate Resource : Acc Group Create After Deletion", func(t *testing.T) {
-		const terraformResourceName = "test003"
+		terraformResourceName := test.RandomGroupName()
 		theResource := acctests.TerraformGroup(terraformResourceName)
 		groupName := test.RandomName()
 
@@ -112,7 +112,7 @@ func TestAccTwingateGroupReCreateAfterDeletion(t *testing.T) {
 
 func TestAccTwingateGroupWithSecurityPolicy(t *testing.T) {
 	t.Run("Test Twingate Resource : Acc Group Create/Update - With Security Policy", func(t *testing.T) {
-		const terraformResourceName = "test004"
+		terraformResourceName := test.RandomGroupName()
 		theResource := acctests.TerraformGroup(terraformResourceName)
 		name := test.RandomName()
 
@@ -173,7 +173,7 @@ func terraformResourceTwingateGroupWithSecurityPolicy(terraformResourceName, nam
 
 func TestAccTwingateGroupUsersAuthoritativeByDefault(t *testing.T) {
 	t.Run("Test Twingate Resource : Acc Group Users Authoritative By Default", func(t *testing.T) {
-		const terraformResourceName = "test005"
+		terraformResourceName := test.RandomGroupName()
 		theResource := acctests.TerraformGroup(terraformResourceName)
 		groupName := test.RandomName()
 
@@ -299,7 +299,7 @@ func terraformResourceTwingateGroupWithUsersAuthoritative(terraformResourceName,
 
 func TestAccTwingateGroupUsersNotAuthoritative(t *testing.T) {
 	t.Run("Test Twingate Resource : Acc Group Users Not Authoritative", func(t *testing.T) {
-		const terraformResourceName = "test006"
+		terraformResourceName := test.RandomGroupName()
 		theResource := acctests.TerraformGroup(terraformResourceName)
 		groupName := test.RandomName()
 
@@ -360,7 +360,7 @@ func TestAccTwingateGroupUsersCursor(t *testing.T) {
 	t.Run("Test Twingate Resource : Acc Group Users Cursor", func(t *testing.T) {
 		acctests.SetPageLimit(1)
 
-		const terraformResourceName = "test007"
+		terraformResourceName := test.RandomGroupName()
 		theResource := acctests.TerraformGroup(terraformResourceName)
 		groupName := test.RandomName()
 
