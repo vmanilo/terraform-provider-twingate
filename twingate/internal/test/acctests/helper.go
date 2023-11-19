@@ -54,8 +54,9 @@ func ErrUsersLenMismatch(expected, actual int) error {
 // since that would require us to generate a very particular ordering of arguments.
 func Nprintf(format string, params map[string]interface{}) string {
 	for key, val := range params {
-		format = strings.Replace(format, "%{"+key+"}", fmt.Sprintf("%v", val), -1)
+		format = strings.ReplaceAll(format, "%{"+key+"}", fmt.Sprintf("%v", val))
 	}
+
 	return format
 }
 
@@ -92,6 +93,7 @@ var ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){ //n
 }
 
 func SetPageLimit(t *testing.T, limit int) {
+	t.Helper()
 	t.Setenv(client.EnvPageLimit, strconv.Itoa(limit))
 }
 
