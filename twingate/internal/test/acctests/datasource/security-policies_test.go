@@ -11,7 +11,7 @@ import (
 
 func TestAccDatasourceTwingateSecurityPoliciesBasic(t *testing.T) {
 	t.Run("Test Twingate Datasource : Acc Security Policies - basic", func(t *testing.T) {
-		acctests.SetPageLimit(1)
+		acctests.SetPageLimit(t, 1)
 
 		securityPolicies, err := acctests.ListSecurityPolicies()
 		if err != nil {

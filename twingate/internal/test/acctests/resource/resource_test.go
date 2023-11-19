@@ -1941,7 +1941,7 @@ func createResource29WithoutAlias(terraformResourceName, networkName, resourceNa
 }
 
 func TestAccTwingateResourceGroupsCursor(t *testing.T) {
-	acctests.SetPageLimit(1)
+	acctests.SetPageLimit(t, 1)
 
 	const terraformResourceName = "test27"
 	theResource := acctests.TerraformResource(terraformResourceName)

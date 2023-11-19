@@ -12,7 +12,7 @@ import (
 
 func TestAccDatasourceTwingateRemoteNetworks_read(t *testing.T) {
 	t.Run("Test Twingate Datasource : Acc Remote Networks Read", func(t *testing.T) {
-		acctests.SetPageLimit(1)
+		acctests.SetPageLimit(t, 1)
 
 		prefix := acctest.RandString(10)
 		networkName1 := test.RandomName(prefix)

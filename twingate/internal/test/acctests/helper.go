@@ -91,10 +91,8 @@ var ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){ //n
 	},
 }
 
-func SetPageLimit(limit int) {
-	if err := os.Setenv(client.EnvPageLimit, strconv.Itoa(limit)); err != nil {
-		log.Fatal("failed to set page limit", err)
-	}
+func SetPageLimit(t *testing.T, limit int) {
+	t.Setenv(client.EnvPageLimit, strconv.Itoa(limit))
 }
 
 const WaitDuration = 500 * time.Millisecond
