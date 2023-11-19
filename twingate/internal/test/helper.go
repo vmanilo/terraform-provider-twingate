@@ -33,6 +33,10 @@ func RandomGroupName() string {
 	return RandomName("group")
 }
 
+func RandomNetworkName() string {
+	return RandomName("network")
+}
+
 func RandomName(names ...string) string {
 	return acctest.RandomWithPrefix(Prefix(names...))
 }
