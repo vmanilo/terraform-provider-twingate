@@ -37,6 +37,10 @@ func RandomNetworkName() string {
 	return RandomName("network")
 }
 
+func RandomUserName() string {
+	return RandomName("user")
+}
+
 func RandomName(names ...string) string {
 	return acctest.RandomWithPrefix(Prefix(names...))
 }
