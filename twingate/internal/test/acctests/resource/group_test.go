@@ -16,10 +16,10 @@ var userIdsLen = attr.Len(attr.UserIDs)
 func TestAccTwingateGroupCreateUpdate(t *testing.T) {
 	t.Parallel()
 
-	terraformResourceName := test.RandomGroupName()
-	theResource := acctests.TerraformGroup(terraformResourceName)
-	nameBefore := test.RandomName()
-	nameAfter := test.RandomName()
+	groupResource := test.RandomGroupName()
+	theResource := acctests.TerraformGroup(groupResource)
+	name1 := test.RandomName()
+	name2 := test.RandomName()
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -27,30 +27,30 @@ func TestAccTwingateGroupCreateUpdate(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateGroupDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: terraformResourceTwingateGroup(terraformResourceName, nameBefore),
+				Config: configGroup(groupResource, name1),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
-					sdk.TestCheckResourceAttr(theResource, attr.Name, nameBefore),
+					sdk.TestCheckResourceAttr(theResource, attr.Name, name1),
 				),
 			},
 			{
-				Config: terraformResourceTwingateGroup(terraformResourceName, nameAfter),
+				Config: configGroup(groupResource, name2),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
-					sdk.TestCheckResourceAttr(theResource, attr.Name, nameAfter),
+					sdk.TestCheckResourceAttr(theResource, attr.Name, name2),
 				),
 			},
 		},
 	})
 }
 
-func terraformResourceTwingateGroup(terraformResourceName, name string) string {
+func configGroup(groupResource, name string) string {
 	return acctests.Nprintf(`
 	resource "twingate_group" "%{group_resource}" {
 	  name = "%{group_name}"
 	}
 	`, map[string]interface{}{
-		"group_resource": terraformResourceName,
+		"group_resource": groupResource,
 		"group_name":     name,
 	})
 }
@@ -58,9 +58,8 @@ func terraformResourceTwingateGroup(terraformResourceName, name string) string {
 func TestAccTwingateGroupDeleteNonExisting(t *testing.T) {
 	t.Parallel()
 
-	terraformResourceName := test.RandomGroupName()
-	theResource := acctests.TerraformGroup(terraformResourceName)
-	groupName := test.RandomName()
+	groupResource := test.RandomGroupName()
+	theResource := acctests.TerraformGroup(groupResource)
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -68,7 +67,7 @@ func TestAccTwingateGroupDeleteNonExisting(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateGroupDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config:  terraformResourceTwingateGroup(terraformResourceName, groupName),
+				Config:  configGroup(groupResource, test.RandomName()),
 				Destroy: true,
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceDoesNotExists(theResource),
@@ -81,8 +80,8 @@ func TestAccTwingateGroupDeleteNonExisting(t *testing.T) {
 func TestAccTwingateGroupReCreateAfterDeletion(t *testing.T) {
 	t.Parallel()
 
-	terraformResourceName := test.RandomGroupName()
-	theResource := acctests.TerraformGroup(terraformResourceName)
+	groupResource := test.RandomGroupName()
+	theResource := acctests.TerraformGroup(groupResource)
 	groupName := test.RandomName()
 
 	sdk.Test(t, sdk.TestCase{
@@ -91,7 +90,7 @@ func TestAccTwingateGroupReCreateAfterDeletion(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateGroupDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: terraformResourceTwingateGroup(terraformResourceName, groupName),
+				Config: configGroup(groupResource, groupName),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					acctests.DeleteTwingateResource(theResource, resource.TwingateGroup),
@@ -99,7 +98,7 @@ func TestAccTwingateGroupReCreateAfterDeletion(t *testing.T) {
 				ExpectNonEmptyPlan: true,
 			},
 			{
-				Config: terraformResourceTwingateGroup(terraformResourceName, groupName),
+				Config: configGroup(groupResource, groupName),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 				),
@@ -111,8 +110,8 @@ func TestAccTwingateGroupReCreateAfterDeletion(t *testing.T) {
 func TestAccTwingateGroupWithSecurityPolicy(t *testing.T) {
 	t.Parallel()
 
-	terraformResourceName := test.RandomGroupName()
-	theResource := acctests.TerraformGroup(terraformResourceName)
+	groupResource := test.RandomGroupName()
+	theResource := acctests.TerraformGroup(groupResource)
 	name := test.RandomName()
 
 	securityPolicies, err := acctests.ListSecurityPolicies()
@@ -128,14 +127,14 @@ func TestAccTwingateGroupWithSecurityPolicy(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateGroupDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: terraformResourceTwingateGroup(terraformResourceName, name),
+				Config: configGroup(groupResource, name),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					sdk.TestCheckResourceAttr(theResource, attr.Name, name),
 				),
 			},
 			{
-				Config: terraformResourceTwingateGroupWithSecurityPolicy(terraformResourceName, name, testPolicy.ID),
+				Config: configGroupWithSecurityPolicy(groupResource, name, testPolicy.ID),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					sdk.TestCheckResourceAttr(theResource, attr.Name, name),
@@ -145,7 +144,7 @@ func TestAccTwingateGroupWithSecurityPolicy(t *testing.T) {
 			{
 				// expecting no changes
 				PlanOnly: true,
-				Config:   terraformResourceTwingateGroup(terraformResourceName, name),
+				Config:   configGroup(groupResource, name),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					sdk.TestCheckResourceAttr(theResource, attr.Name, name),
@@ -155,7 +154,7 @@ func TestAccTwingateGroupWithSecurityPolicy(t *testing.T) {
 	})
 }
 
-func terraformResourceTwingateGroupWithSecurityPolicy(terraformResourceName, name, securityPolicyID string) string {
+func configGroupWithSecurityPolicy(terraformResourceName, name, securityPolicyID string) string {
 	return acctests.Nprintf(`
 	resource "twingate_group" "%{group_resource}" {
 	  name = "%{group_name}"
@@ -172,8 +171,8 @@ func terraformResourceTwingateGroupWithSecurityPolicy(terraformResourceName, nam
 func TestAccTwingateGroupUsersAuthoritativeByDefault(t *testing.T) {
 	t.Parallel()
 
-	terraformResourceName := test.RandomGroupName()
-	theResource := acctests.TerraformGroup(terraformResourceName)
+	groupResource := test.RandomGroupName()
+	theResource := acctests.TerraformGroup(groupResource)
 	groupName := test.RandomName()
 
 	users, userIDs := genNewUsers("u005", 3)
@@ -184,14 +183,14 @@ func TestAccTwingateGroupUsersAuthoritativeByDefault(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateGroupDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: terraformResourceTwingateGroupWithUsers(terraformResourceName, groupName, users, userIDs[:1]),
+				Config: configGroupWithUsers(groupResource, groupName, users, userIDs[:1]),
 				Check: acctests.ComposeTestCheckFunc(
 					sdk.TestCheckResourceAttr(theResource, userIdsLen, "1"),
 					acctests.CheckGroupUsersLen(theResource, 1),
 				),
 			},
 			{
-				Config: terraformResourceTwingateGroupWithUsers(terraformResourceName, groupName, users, userIDs[:1]),
+				Config: configGroupWithUsers(groupResource, groupName, users, userIDs[:1]),
 				Check: acctests.ComposeTestCheckFunc(
 					// added new user to the group though API
 					acctests.AddGroupUser(theResource, groupName, userIDs[1]),
@@ -202,7 +201,7 @@ func TestAccTwingateGroupUsersAuthoritativeByDefault(t *testing.T) {
 				ExpectNonEmptyPlan: true,
 			},
 			{
-				Config: terraformResourceTwingateGroupWithUsers(terraformResourceName, groupName, users, userIDs[:1]),
+				Config: configGroupWithUsers(groupResource, groupName, users, userIDs[:1]),
 				Check: acctests.ComposeTestCheckFunc(
 					sdk.TestCheckResourceAttr(theResource, userIdsLen, "1"),
 					acctests.CheckGroupUsersLen(theResource, 1),
@@ -210,14 +209,14 @@ func TestAccTwingateGroupUsersAuthoritativeByDefault(t *testing.T) {
 			},
 			{
 				// added 2 new users to the group though terraform
-				Config: terraformResourceTwingateGroupWithUsers(terraformResourceName, groupName, users, userIDs[:3]),
+				Config: configGroupWithUsers(groupResource, groupName, users, userIDs[:3]),
 				Check: acctests.ComposeTestCheckFunc(
 					sdk.TestCheckResourceAttr(theResource, userIdsLen, "3"),
 					acctests.CheckGroupUsersLen(theResource, 3),
 				),
 			},
 			{
-				Config: terraformResourceTwingateGroupWithUsers(terraformResourceName, groupName, users, userIDs[:3]),
+				Config: configGroupWithUsers(groupResource, groupName, users, userIDs[:3]),
 				Check: acctests.ComposeTestCheckFunc(
 					// delete one user from the group though API
 					acctests.DeleteGroupUser(theResource, userIDs[2]),
@@ -229,7 +228,7 @@ func TestAccTwingateGroupUsersAuthoritativeByDefault(t *testing.T) {
 				ExpectNonEmptyPlan: true,
 			},
 			{
-				Config: terraformResourceTwingateGroupWithUsers(terraformResourceName, groupName, users, userIDs[:3]),
+				Config: configGroupWithUsers(groupResource, groupName, users, userIDs[:3]),
 				Check: acctests.ComposeTestCheckFunc(
 					sdk.TestCheckResourceAttr(theResource, userIdsLen, "3"),
 					acctests.CheckGroupUsersLen(theResource, 3),
@@ -237,7 +236,7 @@ func TestAccTwingateGroupUsersAuthoritativeByDefault(t *testing.T) {
 			},
 			{
 				// remove 2 users from the group though terraform
-				Config: terraformResourceTwingateGroupWithUsers(terraformResourceName, groupName, users, userIDs[:1]),
+				Config: configGroupWithUsers(groupResource, groupName, users, userIDs[:1]),
 				Check: acctests.ComposeTestCheckFunc(
 					sdk.TestCheckResourceAttr(theResource, userIdsLen, "1"),
 					acctests.CheckGroupUsersLen(theResource, 1),
@@ -245,11 +244,11 @@ func TestAccTwingateGroupUsersAuthoritativeByDefault(t *testing.T) {
 			},
 			{
 				// expecting no drift
-				Config:   terraformResourceTwingateGroupWithUsersAuthoritative(terraformResourceName, groupName, users, userIDs[:1], true),
+				Config:   configGroupWithUsersAuthoritative(groupResource, groupName, users, userIDs[:1], true),
 				PlanOnly: true,
 			},
 			{
-				Config: terraformResourceTwingateGroupWithUsersAuthoritative(terraformResourceName, groupName, users, userIDs[:2], true),
+				Config: configGroupWithUsersAuthoritative(groupResource, groupName, users, userIDs[:2], true),
 				Check: acctests.ComposeTestCheckFunc(
 					sdk.TestCheckResourceAttr(theResource, userIdsLen, "2"),
 					acctests.CheckGroupUsersLen(theResource, 2),
@@ -259,7 +258,7 @@ func TestAccTwingateGroupUsersAuthoritativeByDefault(t *testing.T) {
 	})
 }
 
-func terraformResourceTwingateGroupWithUsers(terraformResourceName, name string, users, usersID []string) string {
+func configGroupWithUsers(terraformResourceName, name string, users, usersID []string) string {
 	return acctests.Nprintf(`
 	%{users}
 
@@ -276,7 +275,7 @@ func terraformResourceTwingateGroupWithUsers(terraformResourceName, name string,
 		})
 }
 
-func terraformResourceTwingateGroupWithUsersAuthoritative(terraformResourceName, name string, users, usersID []string, authoritative bool) string {
+func configGroupWithUsersAuthoritative(terraformResourceName, name string, users, usersID []string, authoritative bool) string {
 	return acctests.Nprintf(`
 	%{users}
 
@@ -298,8 +297,8 @@ func terraformResourceTwingateGroupWithUsersAuthoritative(terraformResourceName,
 func TestAccTwingateGroupUsersNotAuthoritative(t *testing.T) {
 	t.Parallel()
 
-	terraformResourceName := test.RandomGroupName()
-	theResource := acctests.TerraformGroup(terraformResourceName)
+	groupResource := test.RandomGroupName()
+	theResource := acctests.TerraformGroup(groupResource)
 	groupName := test.RandomName()
 
 	users, userIDs := genNewUsers("u006", 3)
@@ -310,14 +309,14 @@ func TestAccTwingateGroupUsersNotAuthoritative(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateGroupDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: terraformResourceTwingateGroupWithUsersAuthoritative(terraformResourceName, groupName, users, userIDs[:1], false),
+				Config: configGroupWithUsersAuthoritative(groupResource, groupName, users, userIDs[:1], false),
 				Check: acctests.ComposeTestCheckFunc(
 					sdk.TestCheckResourceAttr(theResource, userIdsLen, "1"),
 					acctests.CheckGroupUsersLen(theResource, 1),
 				),
 			},
 			{
-				Config: terraformResourceTwingateGroupWithUsersAuthoritative(terraformResourceName, groupName, users, userIDs[:1], false),
+				Config: configGroupWithUsersAuthoritative(groupResource, groupName, users, userIDs[:1], false),
 				Check: acctests.ComposeTestCheckFunc(
 					// added new user to the group though API
 					acctests.AddGroupUser(theResource, groupName, userIDs[2]),
@@ -327,7 +326,7 @@ func TestAccTwingateGroupUsersNotAuthoritative(t *testing.T) {
 			},
 			{
 				// added new user to the group though terraform
-				Config: terraformResourceTwingateGroupWithUsersAuthoritative(terraformResourceName, groupName, users, userIDs[:2], false),
+				Config: configGroupWithUsersAuthoritative(groupResource, groupName, users, userIDs[:2], false),
 				Check: acctests.ComposeTestCheckFunc(
 					sdk.TestCheckResourceAttr(theResource, userIdsLen, "2"),
 					acctests.CheckGroupUsersLen(theResource, 3),
@@ -335,7 +334,7 @@ func TestAccTwingateGroupUsersNotAuthoritative(t *testing.T) {
 			},
 			{
 				// remove one user from the group though terraform
-				Config: terraformResourceTwingateGroupWithUsersAuthoritative(terraformResourceName, groupName, users, userIDs[:1], false),
+				Config: configGroupWithUsersAuthoritative(groupResource, groupName, users, userIDs[:1], false),
 				Check: acctests.ComposeTestCheckFunc(
 					sdk.TestCheckResourceAttr(theResource, userIdsLen, "1"),
 					acctests.CheckGroupUsersLen(theResource, 2),
@@ -347,7 +346,7 @@ func TestAccTwingateGroupUsersNotAuthoritative(t *testing.T) {
 			},
 			{
 				// expecting no drift - empty plan
-				Config:   terraformResourceTwingateGroupWithUsersAuthoritative(terraformResourceName, groupName, users, userIDs[:1], false),
+				Config:   configGroupWithUsersAuthoritative(groupResource, groupName, users, userIDs[:1], false),
 				PlanOnly: true,
 			},
 		},
@@ -357,8 +356,8 @@ func TestAccTwingateGroupUsersNotAuthoritative(t *testing.T) {
 func TestAccTwingateGroupUsersCursor(t *testing.T) {
 	acctests.SetPageLimit(t, 1)
 
-	terraformResourceName := test.RandomGroupName()
-	theResource := acctests.TerraformGroup(terraformResourceName)
+	groupResource := test.RandomGroupName()
+	theResource := acctests.TerraformGroup(groupResource)
 	groupName := test.RandomName()
 
 	users, userIDs := genNewUsers("u007", 3)
@@ -369,13 +368,13 @@ func TestAccTwingateGroupUsersCursor(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateGroupDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: terraformResourceTwingateGroupWithUsers(terraformResourceName, groupName, users, userIDs),
+				Config: configGroupWithUsers(groupResource, groupName, users, userIDs),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckGroupUsersLen(theResource, len(users)),
 				),
 			},
 			{
-				Config: terraformResourceTwingateGroupWithUsers(terraformResourceName, groupName, users[:2], userIDs[:2]),
+				Config: configGroupWithUsers(groupResource, groupName, users[:2], userIDs[:2]),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckGroupUsersLen(theResource, 2),
 				),

@@ -12,46 +12,49 @@ import (
 )
 
 func TestAccRemoteConnectorWithTokens(t *testing.T) {
-	t.Run("Test Twingate Resource : Acc Remote Connector With Tokens", func(t *testing.T) {
-		const terraformResourceName = "test_t1"
-		theResource := acctests.TerraformConnectorTokens(terraformResourceName)
-		remoteNetworkName := test.RandomName()
+	t.Parallel()
 
-		sdk.Test(t, sdk.TestCase{
-			ProtoV6ProviderFactories: acctests.ProviderFactories,
-			PreCheck:                 func() { acctests.PreCheck(t) },
-			CheckDestroy:             acctests.CheckTwingateConnectorTokensInvalidated,
-			Steps: []sdk.TestStep{
-				{
-					Config: terraformResourceTwingateConnectorTokens(terraformResourceName, remoteNetworkName),
-					Check: acctests.ComposeTestCheckFunc(
-						checkTwingateConnectorTokensSet(theResource),
-					),
-				},
+	connectorName := test.RandomConnectorName()
+	theResource := acctests.TerraformConnectorTokens(connectorName)
+
+	sdk.Test(t, sdk.TestCase{
+		ProtoV6ProviderFactories: acctests.ProviderFactories,
+		PreCheck:                 func() { acctests.PreCheck(t) },
+		CheckDestroy:             acctests.CheckTwingateConnectorTokensInvalidated,
+		Steps: []sdk.TestStep{
+			{
+				Config: configConnectorTokens(connectorName, test.RandomName()),
+				Check: acctests.ComposeTestCheckFunc(
+					checkTwingateConnectorTokensSet(theResource),
+				),
 			},
-		})
+		},
 	})
 }
 
-func terraformResourceTwingateConnectorTokens(terraformResourceName, remoteNetworkName string) string {
-	return fmt.Sprintf(`
-	%s
+func configConnectorTokens(terraformResource, networkName string) string {
+	return acctests.Nprintf(`
+	%{connector}
 
-	resource "twingate_connector_tokens" "%s" {
-	  connector_id = twingate_connector.%s.id
+	resource "twingate_connector_tokens" "%{connector_token_resource}" {
+	  connector_id = twingate_connector.%{connector_resource}.id
       keepers = {
          foo = "bar"
       }
 	}
-	`, terraformResourceTwingateConnector(terraformResourceName, terraformResourceName, remoteNetworkName), terraformResourceName, terraformResourceName)
+	`, map[string]any{
+		"connector":                configConnector(terraformResource, terraformResource, networkName),
+		"connector_token_resource": terraformResource,
+		"connector_resource":       terraformResource,
+	})
 }
 
-func checkTwingateConnectorTokensSet(connectorNameTokens string) sdk.TestCheckFunc {
+func checkTwingateConnectorTokensSet(resourceName string) sdk.TestCheckFunc {
 	return func(s *terraform.State) error {
-		connectorTokens, ok := s.RootModule().Resources[connectorNameTokens]
+		connectorTokens, ok := s.RootModule().Resources[resourceName]
 
 		if !ok {
-			return fmt.Errorf("not found: %s", connectorNameTokens)
+			return fmt.Errorf("not found: %s", resourceName)
 		}
 
 		if connectorTokens.Primary.ID == "" {
