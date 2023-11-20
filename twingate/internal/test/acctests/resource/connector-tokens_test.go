@@ -34,10 +34,10 @@ func TestAccRemoteConnectorWithTokens(t *testing.T) {
 
 func configConnectorTokens(terraformResource, networkName string) string {
 	return acctests.Nprintf(`
-	%{connector}
+	${connector}
 
-	resource "twingate_connector_tokens" "%{connector_token_resource}" {
-	  connector_id = twingate_connector.%{connector_resource}.id
+	resource "twingate_connector_tokens" "${connector_token_resource}" {
+	  connector_id = twingate_connector.${connector_resource}.id
       keepers = {
          foo = "bar"
       }

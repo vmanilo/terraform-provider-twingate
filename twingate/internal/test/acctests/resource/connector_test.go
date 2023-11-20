@@ -148,14 +148,14 @@ func TestAccTwingateConnectorReCreateAfterDeletion(t *testing.T) {
 
 func configConnector(networkTR, connectorTR, networkName string) string {
 	return acctests.Nprintf(`
-	%{remote_network}
+	${remote_network}
 
-	resource "twingate_connector" "%{connector_resource}" {
-	  remote_network_id = twingate_remote_network.%{remote_network_resource}.id
+	resource "twingate_connector" "${connector_resource}" {
+	  remote_network_id = twingate_remote_network.${remote_network_resource}.id
 	}
 	`,
 		map[string]any{
-			"remote_network":          terraformResourceRemoteNetwork(networkTR, networkName),
+			"remote_network":          configRemoteNetwork(networkTR, networkName),
 			"connector_resource":      connectorTR,
 			"remote_network_resource": networkTR,
 		})
@@ -163,15 +163,15 @@ func configConnector(networkTR, connectorTR, networkName string) string {
 
 func configConnectorWithName(terraformResource, networkName, connectorName string) string {
 	return acctests.Nprintf(`
-	%{remote_network}
+	${remote_network}
 
-	resource "twingate_connector" "%{connector_resource}" {
-	  remote_network_id = twingate_remote_network.%{remote_network_resource}.id
-	  name  = "%{connector_name}"
+	resource "twingate_connector" "${connector_resource}" {
+	  remote_network_id = twingate_remote_network.${remote_network_resource}.id
+	  name  = "${connector_name}"
 	}
 	`,
 		map[string]any{
-			"remote_network":          terraformResourceRemoteNetwork(terraformResource, networkName),
+			"remote_network":          configRemoteNetwork(terraformResource, networkName),
 			"connector_resource":      terraformResource,
 			"remote_network_resource": terraformResource,
 			"connector_name":          connectorName,
@@ -279,15 +279,15 @@ func TestAccRemoteConnectorCreateWithNotificationStatus(t *testing.T) {
 
 func configConnectorWithNotificationStatus(terraformRemoteNetworkName, terraformConnectorName, remoteNetworkName string, notificationStatus bool) string {
 	return acctests.Nprintf(`
-	%{remote_network}
+	${remote_network}
 
-	resource "twingate_connector" "%{connector_resource}" {
-	  remote_network_id = twingate_remote_network.%{remote_network_resource}.id
-	  status_updates_enabled = %{notification_status}
+	resource "twingate_connector" "${connector_resource}" {
+	  remote_network_id = twingate_remote_network.${remote_network_resource}.id
+	  status_updates_enabled = ${notification_status}
 	}
 	`,
 		map[string]any{
-			"remote_network":          terraformResourceRemoteNetwork(terraformRemoteNetworkName, remoteNetworkName),
+			"remote_network":          configRemoteNetwork(terraformRemoteNetworkName, remoteNetworkName),
 			"connector_resource":      terraformConnectorName,
 			"remote_network_resource": terraformRemoteNetworkName,
 			"notification_status":     notificationStatus,

@@ -54,7 +54,7 @@ func ErrUsersLenMismatch(expected, actual int) error {
 // since that would require us to generate a very particular ordering of arguments.
 func Nprintf(format string, params map[string]interface{}) string {
 	for key, val := range params {
-		format = strings.ReplaceAll(format, "%{"+key+"}", fmt.Sprintf("%v", val))
+		format = strings.ReplaceAll(format, "${"+key+"}", fmt.Sprintf("%v", val))
 	}
 
 	return format

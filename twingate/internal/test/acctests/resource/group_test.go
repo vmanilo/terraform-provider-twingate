@@ -46,12 +46,12 @@ func TestAccTwingateGroupCreateUpdate(t *testing.T) {
 
 func configGroup(groupResource, name string) string {
 	return acctests.Nprintf(`
-	resource "twingate_group" "%{group_resource}" {
-	  name = "%{group_name}"
+	resource "twingate_group" "${group_resource}" {
+	  name = "${name}"
 	}
-	`, map[string]interface{}{
+	`, map[string]any{
 		"group_resource": groupResource,
-		"group_name":     name,
+		"name":           name,
 	})
 }
 
@@ -156,14 +156,14 @@ func TestAccTwingateGroupWithSecurityPolicy(t *testing.T) {
 
 func configGroupWithSecurityPolicy(terraformResourceName, name, securityPolicyID string) string {
 	return acctests.Nprintf(`
-	resource "twingate_group" "%{group_resource}" {
-	  name = "%{group_name}"
-	  security_policy_id = "%{security_policy_id}"
+	resource "twingate_group" "${group_resource}" {
+	  name = "${name}"
+	  security_policy_id = "${security_policy_id}"
 	}
 	`,
-		map[string]interface{}{
+		map[string]any{
 			"group_resource":     terraformResourceName,
-			"group_name":         name,
+			"name":               name,
 			"security_policy_id": securityPolicyID,
 		})
 }
@@ -260,35 +260,35 @@ func TestAccTwingateGroupUsersAuthoritativeByDefault(t *testing.T) {
 
 func configGroupWithUsers(terraformResourceName, name string, users, usersID []string) string {
 	return acctests.Nprintf(`
-	%{users}
+	${users}
 
-	resource "twingate_group" "%{group_resource}" {
-	  name = "%{group_name}"
-	  user_ids = [%{user_ids}]
+	resource "twingate_group" "${group_resource}" {
+	  name = "${name}"
+	  user_ids = [${user_ids}]
 	}
 	`,
-		map[string]interface{}{
+		map[string]any{
 			"users":          strings.Join(users, "\n"),
 			"group_resource": terraformResourceName,
-			"group_name":     name,
+			"name":           name,
 			"user_ids":       strings.Join(usersID, ", "),
 		})
 }
 
 func configGroupWithUsersAuthoritative(terraformResourceName, name string, users, usersID []string, authoritative bool) string {
 	return acctests.Nprintf(`
-	%{users}
+	${users}
 
-	resource "twingate_group" "%{group_resource}" {
-	  name = "%{group_name}"
-	  user_ids = [%{user_ids}]
-	  is_authoritative = %{authoritative}
+	resource "twingate_group" "${group_resource}" {
+	  name = "${name}"
+	  user_ids = [${user_ids}]
+	  is_authoritative = ${authoritative}
 	}
 	`,
-		map[string]interface{}{
+		map[string]any{
 			"users":          strings.Join(users, "\n"),
 			"group_resource": terraformResourceName,
-			"group_name":     name,
+			"name":           name,
 			"user_ids":       strings.Join(usersID, ", "),
 			"authoritative":  authoritative,
 		})
