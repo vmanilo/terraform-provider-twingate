@@ -41,6 +41,10 @@ func RandomUserName() string {
 	return RandomName("user")
 }
 
+func RandomServiceAccountName() string {
+	return RandomName("service_account")
+}
+
 func RandomName(names ...string) string {
 	return acctest.RandomWithPrefix(Prefix(names...))
 }

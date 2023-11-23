@@ -1,7 +1,6 @@
 package resource
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/Twingate/terraform-provider-twingate/twingate/internal/attr"
@@ -12,94 +11,98 @@ import (
 )
 
 func createServiceAccount(resourceName, serviceAccountName string) string {
-	return fmt.Sprintf(`
-	resource "twingate_service_account" "%s" {
-	  name = "%s"
+	return acctests.Nprintf(`
+	resource "twingate_service_account" "${service_account_resource}" {
+	  name = "${name}"
 	}
-	`, resourceName, serviceAccountName)
+	`,
+		map[string]any{
+			"service_account_resource": resourceName,
+			"name":                     serviceAccountName,
+		})
 }
 
 func TestAccTwingateServiceAccountCreateUpdate(t *testing.T) {
-	t.Run("Test Twingate Resource : Acc Service Account Create/Update", func(t *testing.T) {
-		const terraformResourceName = "test01"
-		theResource := acctests.TerraformServiceAccount(terraformResourceName)
-		nameBefore := test.RandomName()
-		nameAfter := test.RandomName()
+	t.Parallel()
 
-		sdk.Test(t, sdk.TestCase{
-			ProtoV6ProviderFactories: acctests.ProviderFactories,
-			PreCheck:                 func() { acctests.PreCheck(t) },
-			CheckDestroy:             acctests.CheckTwingateServiceAccountDestroy,
-			Steps: []sdk.TestStep{
-				{
-					Config: createServiceAccount(terraformResourceName, nameBefore),
-					Check: acctests.ComposeTestCheckFunc(
-						acctests.CheckTwingateResourceExists(theResource),
-						sdk.TestCheckResourceAttr(theResource, attr.Name, nameBefore),
-					),
-				},
-				{
-					Config: createServiceAccount(terraformResourceName, nameAfter),
-					Check: acctests.ComposeTestCheckFunc(
-						acctests.CheckTwingateResourceExists(theResource),
-						sdk.TestCheckResourceAttr(theResource, attr.Name, nameAfter),
-					),
-				},
+	resourceName := test.RandomServiceAccountName()
+	theResource := acctests.TerraformServiceAccount(resourceName)
+	name1 := test.RandomName()
+	name2 := test.RandomName()
+
+	sdk.Test(t, sdk.TestCase{
+		ProtoV6ProviderFactories: acctests.ProviderFactories,
+		PreCheck:                 func() { acctests.PreCheck(t) },
+		CheckDestroy:             acctests.CheckTwingateServiceAccountDestroy,
+		Steps: []sdk.TestStep{
+			{
+				Config: createServiceAccount(resourceName, name1),
+				Check: acctests.ComposeTestCheckFunc(
+					acctests.CheckTwingateResourceExists(theResource),
+					sdk.TestCheckResourceAttr(theResource, attr.Name, name1),
+				),
 			},
-		})
+			{
+				Config: createServiceAccount(resourceName, name2),
+				Check: acctests.ComposeTestCheckFunc(
+					acctests.CheckTwingateResourceExists(theResource),
+					sdk.TestCheckResourceAttr(theResource, attr.Name, name2),
+				),
+			},
+		},
 	})
 }
 
 func TestAccTwingateServiceAccountDeleteNonExisting(t *testing.T) {
-	t.Run("Test Twingate Resource : Acc Service Account Delete NonExisting", func(t *testing.T) {
-		const terraformResourceName = "test02"
-		theResource := acctests.TerraformServiceAccount(terraformResourceName)
-		name := test.RandomName()
+	t.Parallel()
 
-		sdk.Test(t, sdk.TestCase{
-			ProtoV6ProviderFactories: acctests.ProviderFactories,
-			PreCheck:                 func() { acctests.PreCheck(t) },
-			CheckDestroy:             acctests.CheckTwingateServiceAccountDestroy,
-			Steps: []sdk.TestStep{
-				{
-					Config:  createServiceAccount(terraformResourceName, name),
-					Destroy: true,
-					Check: acctests.ComposeTestCheckFunc(
-						acctests.CheckTwingateResourceDoesNotExists(theResource),
-					),
-				},
+	resourceName := test.RandomServiceAccountName()
+	theResource := acctests.TerraformServiceAccount(resourceName)
+	name := test.RandomName()
+
+	sdk.Test(t, sdk.TestCase{
+		ProtoV6ProviderFactories: acctests.ProviderFactories,
+		PreCheck:                 func() { acctests.PreCheck(t) },
+		CheckDestroy:             acctests.CheckTwingateServiceAccountDestroy,
+		Steps: []sdk.TestStep{
+			{
+				Config:  createServiceAccount(resourceName, name),
+				Destroy: true,
+				Check: acctests.ComposeTestCheckFunc(
+					acctests.CheckTwingateResourceDoesNotExists(theResource),
+				),
 			},
-		})
+		},
 	})
 }
 
 func TestAccTwingateServiceAccountReCreateAfterDeletion(t *testing.T) {
-	t.Run("Test Twingate Resource : Acc Service Account Create After Deletion", func(t *testing.T) {
-		const terraformResourceName = "test03"
-		theResource := acctests.TerraformServiceAccount(terraformResourceName)
-		name := test.RandomName()
+	t.Parallel()
 
-		sdk.Test(t, sdk.TestCase{
-			ProtoV6ProviderFactories: acctests.ProviderFactories,
-			PreCheck:                 func() { acctests.PreCheck(t) },
-			CheckDestroy:             acctests.CheckTwingateServiceAccountDestroy,
-			Steps: []sdk.TestStep{
-				{
-					Config: createServiceAccount(terraformResourceName, name),
-					Check: acctests.ComposeTestCheckFunc(
-						acctests.CheckTwingateResourceExists(theResource),
-						acctests.DeleteTwingateResource(theResource, resource.TwingateServiceAccount),
-						acctests.WaitTestFunc(),
-					),
-					ExpectNonEmptyPlan: true,
-				},
-				{
-					Config: createServiceAccount(terraformResourceName, name),
-					Check: acctests.ComposeTestCheckFunc(
-						acctests.CheckTwingateResourceExists(theResource),
-					),
-				},
+	resourceName := test.RandomServiceAccountName()
+	theResource := acctests.TerraformServiceAccount(resourceName)
+	name := test.RandomName()
+
+	sdk.Test(t, sdk.TestCase{
+		ProtoV6ProviderFactories: acctests.ProviderFactories,
+		PreCheck:                 func() { acctests.PreCheck(t) },
+		CheckDestroy:             acctests.CheckTwingateServiceAccountDestroy,
+		Steps: []sdk.TestStep{
+			{
+				Config: createServiceAccount(resourceName, name),
+				Check: acctests.ComposeTestCheckFunc(
+					acctests.CheckTwingateResourceExists(theResource),
+					acctests.DeleteTwingateResource(theResource, resource.TwingateServiceAccount),
+					acctests.WaitTestFunc(),
+				),
+				ExpectNonEmptyPlan: true,
 			},
-		})
+			{
+				Config: createServiceAccount(resourceName, name),
+				Check: acctests.ComposeTestCheckFunc(
+					acctests.CheckTwingateResourceExists(theResource),
+				),
+			},
+		},
 	})
 }
