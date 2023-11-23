@@ -92,6 +92,7 @@ var ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){ //n
 	},
 }
 
+// SetPageLimit - changes page limit, can't be uses in parallel tests
 func SetPageLimit(t *testing.T, limit int) {
 	t.Helper()
 	t.Setenv(client.EnvPageLimit, strconv.Itoa(limit))

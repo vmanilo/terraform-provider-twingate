@@ -11,20 +11,18 @@ import (
 )
 
 func TestAccDatasourceTwingateUsers_basic(t *testing.T) {
-	t.Run("Test Twingate Datasource : Acc Users Basic", func(t *testing.T) {
-		acctests.SetPageLimit(t, 1)
-		resource.Test(t, resource.TestCase{
-			ProtoV6ProviderFactories: acctests.ProviderFactories,
-			PreCheck:                 func() { acctests.PreCheck(t) },
-			Steps: []resource.TestStep{
-				{
-					Config: testDatasourceTwingateUsers(),
-					Check: acctests.ComposeTestCheckFunc(
-						testCheckResourceAttrNotEqual("data.twingate_users.all", attr.Len(attr.Users), "0"),
-					),
-				},
+	acctests.SetPageLimit(t, 1)
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: acctests.ProviderFactories,
+		PreCheck:                 func() { acctests.PreCheck(t) },
+		Steps: []resource.TestStep{
+			{
+				Config: testDatasourceTwingateUsers(),
+				Check: acctests.ComposeTestCheckFunc(
+					testCheckResourceAttrNotEqual("data.twingate_users.all", attr.Len(attr.Users), "0"),
+				),
 			},
-		})
+		},
 	})
 }
 

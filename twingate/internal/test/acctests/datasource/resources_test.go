@@ -16,37 +16,35 @@ var (
 )
 
 func TestAccDatasourceTwingateResources_basic(t *testing.T) {
-	t.Run("Test Twingate Datasource : Acc Resources Basic", func(t *testing.T) {
-		acctests.SetPageLimit(t, 1)
-		networkName := test.RandomName()
-		resourceName := test.RandomResourceName()
-		const theDatasource = "data.twingate_resources.out_drs1"
+	acctests.SetPageLimit(t, 1)
+	networkName := test.RandomName()
+	resourceName := test.RandomResourceName()
+	const theDatasource = "data.twingate_resources.out_drs1"
 
-		resource.Test(t, resource.TestCase{
-			ProtoV6ProviderFactories: acctests.ProviderFactories,
-			PreCheck:                 func() { acctests.PreCheck(t) },
-			CheckDestroy:             acctests.CheckTwingateResourceDestroy,
-			Steps: []resource.TestStep{
-				{
-					Config: testDatasourceTwingateResources(networkName, resourceName),
-					Check: acctests.ComposeTestCheckFunc(
-						resource.TestCheckResourceAttr(theDatasource, resourcesLen, "2"),
-						resource.TestCheckResourceAttr(theDatasource, resourceNamePath, resourceName),
-					),
-				},
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: acctests.ProviderFactories,
+		PreCheck:                 func() { acctests.PreCheck(t) },
+		CheckDestroy:             acctests.CheckTwingateResourceDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testDatasourceTwingateResources(networkName, resourceName),
+				Check: acctests.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(theDatasource, resourcesLen, "2"),
+					resource.TestCheckResourceAttr(theDatasource, resourceNamePath, resourceName),
+				),
 			},
-		})
+		},
 	})
 }
 
 func testDatasourceTwingateResources(networkName, resourceName string) string {
-	return fmt.Sprintf(`
+	return acctests.Nprintf(`
 	resource "twingate_remote_network" "test_drs1" {
-	  name = "%s"
+	  name = "${network_name}"
 	}
 
 	resource "twingate_resource" "test_drs1_1" {
-	  name = "%s"
+	  name = "${resource_name}"
 	  address = "acc-test.com"
 	  remote_network_id = twingate_remote_network.test_drs1.id
 	  protocols {
@@ -63,7 +61,7 @@ func testDatasourceTwingateResources(networkName, resourceName string) string {
 	}
 
 	resource "twingate_resource" "test_drs1_2" {
-	  name = "%s"
+	  name = "${resource_name}"
 	  address = "acc-test.com"
 	  remote_network_id = twingate_remote_network.test_drs1.id
 	  protocols {
@@ -80,31 +78,35 @@ func testDatasourceTwingateResources(networkName, resourceName string) string {
 	}
 
 	data "twingate_resources" "out_drs1" {
-	  name = "%s"
+	  name = "${resource_name}"
 
 	  depends_on = [twingate_resource.test_drs1_1, twingate_resource.test_drs1_2]
 	}
-	`, networkName, resourceName, resourceName, resourceName)
+	`,
+		map[string]any{
+			"network_name":  networkName,
+			"resource_name": resourceName,
+		})
 }
 
 func TestAccDatasourceTwingateResources_emptyResult(t *testing.T) {
-	t.Run("Test Twingate Datasource : Acc Resources - empty result", func(t *testing.T) {
-		resourceName := test.RandomResourceName()
+	t.Parallel()
 
-		resource.Test(t, resource.TestCase{
-			ProtoV6ProviderFactories: acctests.ProviderFactories,
-			PreCheck: func() {
-				acctests.PreCheck(t)
+	resourceName := test.RandomResourceName()
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: acctests.ProviderFactories,
+		PreCheck: func() {
+			acctests.PreCheck(t)
+		},
+		Steps: []resource.TestStep{
+			{
+				Config: testTwingateResourcesDoesNotExists(resourceName),
+				Check: acctests.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("data.twingate_resources.out_drs2", resourcesLen, "0"),
+				),
 			},
-			Steps: []resource.TestStep{
-				{
-					Config: testTwingateResourcesDoesNotExists(resourceName),
-					Check: acctests.ComposeTestCheckFunc(
-						resource.TestCheckResourceAttr("data.twingate_resources.out_drs2", resourcesLen, "0"),
-					),
-				},
-			},
-		})
+		},
 	})
 }
 

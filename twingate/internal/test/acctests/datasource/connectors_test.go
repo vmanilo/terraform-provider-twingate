@@ -14,73 +14,77 @@ import (
 )
 
 func TestAccDatasourceTwingateConnectors_basic(t *testing.T) {
-	t.Run("Test Twingate Datasource : Acc Connectors Basic", func(t *testing.T) {
-		acctests.SetPageLimit(t, 1)
+	acctests.SetPageLimit(t, 1)
 
-		networkName1 := test.RandomName()
-		networkName2 := test.RandomName()
-		connectorName := test.RandomConnectorName()
+	networkName1 := test.RandomName()
+	networkName2 := test.RandomName()
+	connectorName := test.RandomConnectorName()
 
-		resource.Test(t, resource.TestCase{
-			ProtoV6ProviderFactories: acctests.ProviderFactories,
-			PreCheck:                 func() { acctests.PreCheck(t) },
-			CheckDestroy:             acctests.CheckTwingateConnectorDestroy,
-			Steps: []resource.TestStep{
-				{
-					Config: testDatasourceTwingateConnectors(networkName1, connectorName, networkName2, connectorName, connectorName),
-					Check: acctests.ComposeTestCheckFunc(
-						testCheckOutputLength("my_connectors", 2),
-						testCheckOutputAttr("my_connectors", 0, attr.Name, connectorName),
-						testCheckOutputAttr("my_connectors", 0, attr.StatusUpdatesEnabled, true),
-					),
-				},
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: acctests.ProviderFactories,
+		PreCheck:                 func() { acctests.PreCheck(t) },
+		CheckDestroy:             acctests.CheckTwingateConnectorDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testDatasourceTwingateConnectors(networkName1, connectorName, networkName2, connectorName, connectorName),
+				Check: acctests.ComposeTestCheckFunc(
+					testCheckOutputLength("my_connectors", 2),
+					testCheckOutputAttr("my_connectors", 0, attr.Name, connectorName),
+					testCheckOutputAttr("my_connectors", 0, attr.StatusUpdatesEnabled, true),
+				),
 			},
-		})
+		},
 	})
 }
 
 func testDatasourceTwingateConnectors(networkName1, connectorName1, networkName2, connectorName2, prefix string) string {
-	return fmt.Sprintf(`
+	return acctests.Nprintf(`
 	resource "twingate_remote_network" "test_dcs1" {
-		name = "%s"
+		name = "${network_name_1}"
 	}
 	resource "twingate_connector" "test_dcs1" {
 		remote_network_id = twingate_remote_network.test_dcs1.id
-		name = "%s"
+		name = "${connector_name_1}"
 	}
 	resource "twingate_remote_network" "test_dcs2" {
-		name = "%s"
+		name = "${network_name_2}"
 	}
 	resource "twingate_connector" "test_dcs2" {
 		remote_network_id = twingate_remote_network.test_dcs2.id
-		name = "%s"
+		name = "${connector_name_1}"
 	}
 	data "twingate_connectors" "all" {
 		depends_on = [twingate_connector.test_dcs1, twingate_connector.test_dcs2]
 	}
 
 	output "my_connectors" {
-	  	value = [for c in [for conn in data.twingate_connectors.all : conn if can(conn.*.name)][0] : c if length(regexall("%s.*", c.name)) > 0]
+	  	value = [for c in [for conn in data.twingate_connectors.all : conn if can(conn.*.name)][0] : c if length(regexall("${prefix}.*", c.name)) > 0]
 	}
-		`, networkName1, connectorName1, networkName2, connectorName2, prefix)
+		`,
+		map[string]any{
+			"network_name_1":   networkName1,
+			"connector_name_1": connectorName1,
+			"network_name_2":   networkName2,
+			"connector_name_2": connectorName2,
+			"prefix":           prefix,
+		})
 }
 
 func TestAccDatasourceTwingateConnectors_emptyResult(t *testing.T) {
-	t.Run("Test Twingate Datasource : Acc Connectors - empty result", func(t *testing.T) {
-		prefix := acctest.RandString(10)
+	t.Parallel()
+	prefix := acctest.RandString(10)
 
-		resource.Test(t, resource.TestCase{
-			ProtoV6ProviderFactories: acctests.ProviderFactories,
-			PreCheck:                 func() { acctests.PreCheck(t) },
-			Steps: []resource.TestStep{
-				{
-					Config: testTwingateConnectorsDoesNotExists(prefix),
-					Check: resource.ComposeTestCheckFunc(
-						testCheckOutputLength("my_connectors_dcs2", 0),
-					),
-				},
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: acctests.ProviderFactories,
+		PreCheck:                 func() { acctests.PreCheck(t) },
+		Steps: []resource.TestStep{
+			{
+				Config: testTwingateConnectorsDoesNotExists(prefix),
+				Check: resource.ComposeTestCheckFunc(
+					testCheckOutputLength("my_connectors_dcs2", 0),
+				),
 			},
-		})
+		},
 	})
 }
 

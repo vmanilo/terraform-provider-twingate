@@ -18,54 +18,57 @@ var (
 )
 
 func TestAccDatasourceTwingateGroups_basic(t *testing.T) {
-	t.Run("Test Twingate Datasource : Acc Groups Basic", func(t *testing.T) {
-		groupName := test.RandomName()
+	t.Parallel()
 
-		const theDatasource = "data.twingate_groups.out_dgs1"
+	groupName := test.RandomName()
+	const theDatasource = "data.twingate_groups.out_dgs1"
+	securityPolicies, err := acctests.ListSecurityPolicies()
+	if err != nil {
+		t.Skip("can't run test:", err)
+	}
 
-		securityPolicies, err := acctests.ListSecurityPolicies()
-		if err != nil {
-			t.Skip("can't run test:", err)
-		}
+	testPolicy := securityPolicies[0]
 
-		testPolicy := securityPolicies[0]
-
-		resource.Test(t, resource.TestCase{
-			ProtoV6ProviderFactories: acctests.ProviderFactories,
-			PreCheck:                 func() { acctests.PreCheck(t) },
-			CheckDestroy:             acctests.CheckTwingateGroupDestroy,
-			Steps: []resource.TestStep{
-				{
-					Config: testDatasourceTwingateGroups(groupName, testPolicy.ID),
-					Check: acctests.ComposeTestCheckFunc(
-						resource.TestCheckResourceAttr(theDatasource, groupsLen, "2"),
-						resource.TestCheckResourceAttr(theDatasource, groupNamePath, groupName),
-						resource.TestCheckResourceAttr(theDatasource, groupPolicyIDPath, testPolicy.ID),
-					),
-				},
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: acctests.ProviderFactories,
+		PreCheck:                 func() { acctests.PreCheck(t) },
+		CheckDestroy:             acctests.CheckTwingateGroupDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testDatasourceTwingateGroups(groupName, testPolicy.ID),
+				Check: acctests.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(theDatasource, groupsLen, "2"),
+					resource.TestCheckResourceAttr(theDatasource, groupNamePath, groupName),
+					resource.TestCheckResourceAttr(theDatasource, groupPolicyIDPath, testPolicy.ID),
+				),
 			},
-		})
+		},
 	})
 }
 
 func testDatasourceTwingateGroups(name, securityPolicyID string) string {
-	return fmt.Sprintf(`
+	return acctests.Nprintf(`
 	resource "twingate_group" "test_dgs1_1" {
-	  name = "%s"
-	  security_policy_id = "%s"
+	  name = "${name}"
+	  security_policy_id = "${security_policy}"
 	}
 
 	resource "twingate_group" "test_dgs1_2" {
-	  name = "%s"
-	  security_policy_id = "%s"
+	  name = "${name}"
+	  security_policy_id = "${security_policy}"
 	}
 
 	data "twingate_groups" "out_dgs1" {
-	  name = "%s"
+	  name = "${name}"
 
 	  depends_on = [twingate_group.test_dgs1_1, twingate_group.test_dgs1_2]
 	}
-	`, name, securityPolicyID, name, securityPolicyID, name)
+	`,
+		map[string]any{
+			"name":            name,
+			"security_policy": securityPolicyID,
+		})
+
 }
 
 func TestAccDatasourceTwingateGroups_emptyResult(t *testing.T) {

@@ -19,105 +19,103 @@ var (
 )
 
 func TestAccDatasourceTwingateServicesFilterByName(t *testing.T) {
-	t.Run("Test Twingate Datasource : Acc Services - Filter By Name", func(t *testing.T) {
+	t.Parallel()
 
-		name := test.Prefix("orange")
-		const (
-			terraformResourceName = "dts_service"
-			theDatasource         = "data.twingate_service_accounts.out"
-		)
+	name := test.Prefix("orange")
+	const (
+		terraformResourceName = "dts_service"
+		theDatasource         = "data.twingate_service_accounts.out"
+	)
 
-		config := []terraformServiceConfig{
+	config := []terraformServiceConfig{
+		{
+			serviceName:           name,
+			terraformResourceName: test.TerraformRandName(terraformResourceName),
+		},
+		{
+			serviceName:           test.Prefix("lemon"),
+			terraformResourceName: test.TerraformRandName(terraformResourceName),
+		},
+	}
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: acctests.ProviderFactories,
+		PreCheck:                 func() { acctests.PreCheck(t) },
+		CheckDestroy:             acctests.CheckTwingateServiceAccountDestroy,
+		Steps: []resource.TestStep{
 			{
-				serviceName:           name,
-				terraformResourceName: test.TerraformRandName(terraformResourceName),
+				Config: terraformConfig(
+					createServices(config),
+					datasourceServices(name, config),
+				),
+				Check: acctests.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(theDatasource, serviceAccountsLen, "1"),
+					resource.TestCheckResourceAttr(theDatasource, keyIDsLen, "1"),
+					resource.TestCheckResourceAttr(theDatasource, attr.ID, "service-by-name-"+name),
+				),
 			},
-			{
-				serviceName:           test.Prefix("lemon"),
-				terraformResourceName: test.TerraformRandName(terraformResourceName),
-			},
-		}
-
-		resource.Test(t, resource.TestCase{
-			ProtoV6ProviderFactories: acctests.ProviderFactories,
-			PreCheck:                 func() { acctests.PreCheck(t) },
-			CheckDestroy:             acctests.CheckTwingateServiceAccountDestroy,
-			Steps: []resource.TestStep{
-				{
-					Config: terraformConfig(
-						createServices(config),
-						datasourceServices(name, config),
-					),
-					Check: acctests.ComposeTestCheckFunc(
-						resource.TestCheckResourceAttr(theDatasource, serviceAccountsLen, "1"),
-						resource.TestCheckResourceAttr(theDatasource, keyIDsLen, "1"),
-						resource.TestCheckResourceAttr(theDatasource, attr.ID, "service-by-name-"+name),
-					),
-				},
-			},
-		})
+		},
 	})
 }
 
 func TestAccDatasourceTwingateServicesAll(t *testing.T) {
-	t.Run("Test Twingate Datasource : Acc Services - All", func(t *testing.T) {
-		prefix := test.Prefix() + acctest.RandString(4)
-		const (
-			terraformResourceName = "dts_service"
-			theDatasource         = "data.twingate_service_accounts.out"
-		)
+	t.Parallel()
 
-		config := []terraformServiceConfig{
-			{
-				serviceName:           prefix + "_orange",
-				terraformResourceName: test.TerraformRandName(terraformResourceName),
-			},
-			{
-				serviceName:           prefix + "_lemon",
-				terraformResourceName: test.TerraformRandName(terraformResourceName),
-			},
-		}
+	prefix := test.Prefix() + acctest.RandString(4)
+	const (
+		terraformResourceName = "dts_service"
+		theDatasource         = "data.twingate_service_accounts.out"
+	)
 
-		resource.Test(t, resource.TestCase{
-			ProtoV6ProviderFactories: acctests.ProviderFactories,
-			PreCheck:                 func() { acctests.PreCheck(t) },
-			CheckDestroy:             acctests.CheckTwingateServiceAccountDestroy,
-			Steps: []resource.TestStep{
-				{
-					Config: filterDatasourceServices(prefix, config),
-					Check: acctests.ComposeTestCheckFunc(
-						resource.TestCheckResourceAttr(theDatasource, attr.ID, "all-services"),
-					),
-				},
-				{
-					Config: filterDatasourceServices(prefix, config),
-					Check: acctests.ComposeTestCheckFunc(
-						testCheckOutputLength("my_services", 2),
-					),
-				},
+	config := []terraformServiceConfig{
+		{
+			serviceName:           prefix + "_orange",
+			terraformResourceName: test.TerraformRandName(terraformResourceName),
+		},
+		{
+			serviceName:           prefix + "_lemon",
+			terraformResourceName: test.TerraformRandName(terraformResourceName),
+		},
+	}
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: acctests.ProviderFactories,
+		PreCheck:                 func() { acctests.PreCheck(t) },
+		CheckDestroy:             acctests.CheckTwingateServiceAccountDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: filterDatasourceServices(prefix, config),
+				Check: acctests.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(theDatasource, attr.ID, "all-services"),
+				),
 			},
-		})
+			{
+				Config: filterDatasourceServices(prefix, config),
+				Check: acctests.ComposeTestCheckFunc(
+					testCheckOutputLength("my_services", 2),
+				),
+			},
+		},
 	})
 }
 
 func TestAccDatasourceTwingateServicesEmptyResult(t *testing.T) {
-	t.Run("Test Twingate Datasource : Acc Services - Empty Result", func(t *testing.T) {
+	t.Parallel()
 
-		const theDatasource = "data.twingate_service_accounts.out"
+	const theDatasource = "data.twingate_service_accounts.out"
 
-		resource.Test(t, resource.TestCase{
-			ProtoV6ProviderFactories: acctests.ProviderFactories,
-			PreCheck:                 func() { acctests.PreCheck(t) },
-			CheckDestroy:             acctests.CheckTwingateServiceAccountDestroy,
-			Steps: []resource.TestStep{
-				{
-					Config: datasourceServices(test.RandomName(), nil),
-					Check: acctests.ComposeTestCheckFunc(
-						resource.TestCheckResourceAttr(theDatasource, serviceAccountsLen, "0"),
-					),
-				},
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: acctests.ProviderFactories,
+		PreCheck:                 func() { acctests.PreCheck(t) },
+		CheckDestroy:             acctests.CheckTwingateServiceAccountDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: datasourceServices(test.RandomName(), nil),
+				Check: acctests.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(theDatasource, serviceAccountsLen, "0"),
+				),
 			},
-		})
+		},
 	})
 }
 
@@ -164,152 +162,152 @@ func getTerraformServiceKeys(configs []terraformServiceConfig) string {
 	)
 }
 
-func createServiceKey(terraformResourceName, serviceName string) string {
-	return fmt.Sprintf(`
-	%s
+func createServiceKey(resourceName, serviceName string) string {
+	return acctests.Nprintf(`
+	${service_account}
 
-	resource "twingate_service_account_key" "%s" {
-	  service_account_id = twingate_service_account.%s.id
+	resource "twingate_service_account_key" "${service_account_key_resource}" {
+	  service_account_id = twingate_service_account.${service_account_resource}.id
 	}
-	`, createServiceAccount(terraformResourceName, serviceName), terraformResourceName, terraformResourceName)
+	`,
+		map[string]any{
+			"service_account":              createServiceAccount(resourceName, serviceName),
+			"service_account_key_resource": resourceName,
+			"service_account_resource":     resourceName,
+		})
 }
 
-func createServiceAccount(terraformResourceName, serviceName string) string {
-	return fmt.Sprintf(`
-	resource "twingate_service_account" "%s" {
-	  name = "%s"
+func createServiceAccount(resourceName, serviceName string) string {
+	return acctests.Nprintf(`
+	resource "twingate_service_account" "${resource_name}" {
+	  name = "${name}"
 	}
-	`, terraformResourceName, serviceName)
+	`,
+		map[string]any{
+			"resource_name": resourceName,
+			"name":          serviceName,
+		})
 }
 
 func filterDatasourceServices(prefix string, configs []terraformServiceConfig) string {
-	return fmt.Sprintf(`
-	%s
+	return acctests.Nprintf(`
+	${services}
 
 	data "twingate_service_accounts" "out" {
 
 	}
 
 	output "my_services" {
-	  	value = [for c in data.twingate_service_accounts.out.service_accounts : c if length(regexall("^%s", c.name)) > 0]
+	  	value = [for c in data.twingate_service_accounts.out.service_accounts : c if length(regexall("^${prefix}", c.name)) > 0]
 	}
-	`, createServices(configs), prefix)
+	`,
+		map[string]any{
+			"services": createServices(configs),
+			"prefix":   prefix,
+		})
 }
 
 func TestAccDatasourceTwingateServicesAllCursors(t *testing.T) {
-	t.Run("Test Twingate Datasource : Acc Services - All Cursors", func(t *testing.T) {
-		acctests.SetPageLimit(t, 1)
-		prefix := test.Prefix() + acctest.RandString(4)
-		const (
-			theDatasource = "data.twingate_service_accounts.out"
-		)
+	acctests.SetPageLimit(t, 1)
+	prefix := test.Prefix() + acctest.RandString(4)
+	const theDatasource = "data.twingate_service_accounts.out"
 
-		resource.Test(t, resource.TestCase{
-			ProtoV6ProviderFactories: acctests.ProviderFactories,
-			PreCheck:                 func() { acctests.PreCheck(t) },
-			CheckDestroy:             acctests.CheckTwingateServiceAccountDestroy,
-			Steps: []resource.TestStep{
-				{
-					Config: datasourceServicesConfig(prefix),
-					Check: acctests.ComposeTestCheckFunc(
-						resource.TestCheckResourceAttr(theDatasource, attr.ID, "all-services"),
-					),
-				},
-				{
-					Config: datasourceServicesConfig(prefix),
-					Check: acctests.ComposeTestCheckFunc(
-						testCheckOutputLength("my_services", 3),
-						testCheckOutputNestedLen("my_services", 0, attr.ResourceIDs, 1),
-						testCheckOutputNestedLen("my_services", 0, attr.KeyIDs, 2),
-					),
-				},
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: acctests.ProviderFactories,
+		PreCheck:                 func() { acctests.PreCheck(t) },
+		CheckDestroy:             acctests.CheckTwingateServiceAccountDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: datasourceServicesConfig(prefix),
+				Check: acctests.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(theDatasource, attr.ID, "all-services"),
+				),
 			},
-		})
+			{
+				Config: datasourceServicesConfig(prefix),
+				Check: acctests.ComposeTestCheckFunc(
+					testCheckOutputLength("my_services", 3),
+					testCheckOutputNestedLen("my_services", 0, attr.ResourceIDs, 1),
+					testCheckOutputNestedLen("my_services", 0, attr.KeyIDs, 2),
+				),
+			},
+		},
 	})
 }
 
 func datasourceServicesConfig(prefix string) string {
-	return fmt.Sprintf(`
-    resource "twingate_service_account" "%s_1" {
-      name = "%s-1"
+	return acctests.Nprintf(`
+    resource "twingate_service_account" "${prefix}_1" {
+      name = "${prefix}-1"
     }
     
-    resource "twingate_service_account" "%s_2" {
-      name = "%s-2"
+    resource "twingate_service_account" "${prefix}_2" {
+      name = "${prefix}-2"
     }
 
-    resource "twingate_service_account" "%s_3" {
-      name = "%s-3"
+    resource "twingate_service_account" "${prefix}_3" {
+      name = "${prefix}-3"
     }
     
-    resource "twingate_remote_network" "%s_1" {
-      name = "%s-1"
+    resource "twingate_remote_network" "${prefix}_1" {
+      name = "${prefix}-1"
     }
     
-    resource "twingate_remote_network" "%s_2" {
-      name = "%s-2"
+    resource "twingate_remote_network" "${prefix}_2" {
+      name = "${prefix}-2"
     }
     
-    resource "twingate_resource" "%s_1" {
-      name = "%s-1"
+    resource "twingate_resource" "${prefix}_1" {
+      name = "${prefix}-1"
       address = "acc-test.com"
-      remote_network_id = twingate_remote_network.%s_1.id
+      remote_network_id = twingate_remote_network.${prefix}_1.id
     
       access {
-        service_account_ids = [twingate_service_account.%s_1.id, twingate_service_account.%s_2.id]
+        service_account_ids = [twingate_service_account.${prefix}_1.id, twingate_service_account.${prefix}_2.id]
       }
     }
     
-    resource "twingate_resource" "%s_2" {
-      name = "%s-2"
+    resource "twingate_resource" "${prefix}_2" {
+      name = "${prefix}-2"
       address = "acc-test.com"
-      remote_network_id = twingate_remote_network.%s_2.id
+      remote_network_id = twingate_remote_network.${prefix}_2.id
     
       access {
-        service_account_ids = [twingate_service_account.%s_3.id]
+        service_account_ids = [twingate_service_account.${prefix}_3.id]
       }
     }
     
-    resource "twingate_service_account_key" "%s_1_1" {
-      service_account_id = twingate_service_account.%s_1.id
+    resource "twingate_service_account_key" "${prefix}_1_1" {
+      service_account_id = twingate_service_account.${prefix}_1.id
     }
     
-    resource "twingate_service_account_key" "%s_1_2" {
-      service_account_id = twingate_service_account.%s_1.id
+    resource "twingate_service_account_key" "${prefix}_1_2" {
+      service_account_id = twingate_service_account.${prefix}_1.id
     }
     
-    resource "twingate_service_account_key" "%s_2_1" {
-      service_account_id = twingate_service_account.%s_2.id
+    resource "twingate_service_account_key" "${prefix}_2_1" {
+      service_account_id = twingate_service_account.${prefix}_2.id
     }
     
-    resource "twingate_service_account_key" "%s_2_2" {
-      service_account_id = twingate_service_account.%s_2.id
+    resource "twingate_service_account_key" "${prefix}_2_2" {
+      service_account_id = twingate_service_account.${prefix}_2.id
     }
     
-    resource "twingate_service_account_key" "%s_3_1" {
-      service_account_id = twingate_service_account.%s_3.id
+    resource "twingate_service_account_key" "${prefix}_3_1" {
+      service_account_id = twingate_service_account.${prefix}_3.id
     }
 
-    resource "twingate_service_account_key" "%s_3_2" {
-      service_account_id = twingate_service_account.%s_3.id
+    resource "twingate_service_account_key" "${prefix}_3_2" {
+      service_account_id = twingate_service_account.${prefix}_3.id
     }
     
     data "twingate_service_accounts" "out" {
-    	depends_on = [twingate_resource.%s_1, twingate_resource.%s_2]
+    	depends_on = [twingate_resource.${prefix}_1, twingate_resource.${prefix}_2]
     }
     
     output "my_services" {
-      value = [for c in data.twingate_service_accounts.out.service_accounts : c if length(regexall("^%s", c.name)) > 0]
+      value = [for c in data.twingate_service_accounts.out.service_accounts : c if length(regexall("^${prefix}", c.name)) > 0]
       depends_on = [data.twingate_service_accounts.out]
     }
-`, duplicate(prefix, 34)...)
-}
-
-func duplicate(val string, n int) []any {
-	result := make([]any, 0, n)
-	for i := 0; i < n; i++ {
-		result = append(result, val)
-	}
-
-	return result
+`, map[string]any{"prefix": prefix})
 }
