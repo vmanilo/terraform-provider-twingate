@@ -179,7 +179,7 @@ func createResourceWithProtocolsAndGroups(terraformResource, networkName, groupN
       name = "${group_2}"
     }
 
-	resource "twingate_resource" "test2" {
+	resource "twingate_resource" "${resource_resource}" {
 	  name = "${resource_name}"
 	  address = "new-acc-test.com"
 	  remote_network_id = twingate_remote_network.${network_resource}.id
@@ -201,13 +201,14 @@ func createResourceWithProtocolsAndGroups(terraformResource, networkName, groupN
 	}
 	`,
 		map[string]any{
-			"network_resource": terraformResource,
-			"network_name":     networkName,
-			"group_1":          groupName1,
-			"group_2":          groupName2,
-			"resource_name":    resourceName,
-			"tcp_policy":       model.PolicyRestricted,
-			"udp_policy":       model.PolicyAllowAll,
+			"network_resource":  terraformResource,
+			"network_name":      networkName,
+			"group_1":           groupName1,
+			"group_2":           groupName2,
+			"resource_resource": terraformResource,
+			"resource_name":     resourceName,
+			"tcp_policy":        model.PolicyRestricted,
+			"udp_policy":        model.PolicyAllowAll,
 		})
 }
 
