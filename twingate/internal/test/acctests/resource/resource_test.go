@@ -519,7 +519,7 @@ func TestAccTwingateResourceWithInvalidPortRange(t *testing.T) {
 	expectedError := regexp.MustCompile("failed to parse protocols port range")
 
 	genConfig := func(portRange string) string {
-		return configResourceWithRestrictedPolicyAndPortRange(terraformResource, remoteNetworkName, resourceName, portRange)
+		return configResourceWithPortRange(terraformResource, remoteNetworkName, resourceName, portRange)
 	}
 
 	sdk.Test(t, sdk.TestCase{
@@ -562,7 +562,51 @@ func TestAccTwingateResourceWithInvalidPortRange(t *testing.T) {
 	})
 }
 
-func configResourceWithRestrictedPolicyAndPortRange(terraformResource, networkName, resourceName, portRange string) string {
+func TestAccTwingateResourcePortReorderingCreatesNoChanges(t *testing.T) {
+	t.Parallel()
+
+	terraformResource := test.RandomResourceName()
+	theResource := acctests.TerraformResource(terraformResource)
+	remoteNetworkName := test.RandomName()
+	resourceName := test.RandomResourceName()
+
+	sdk.Test(t, sdk.TestCase{
+		ProtoV6ProviderFactories: acctests.ProviderFactories,
+		PreCheck:                 func() { acctests.PreCheck(t) },
+		CheckDestroy:             acctests.CheckTwingateResourceDestroy,
+		Steps: []sdk.TestStep{
+			{
+				Config: configResourceWithPortRange(terraformResource, remoteNetworkName, resourceName, `"80", "82-83"`),
+				Check: acctests.ComposeTestCheckFunc(
+					acctests.CheckTwingateResourceExists(theResource),
+					sdk.TestCheckResourceAttr(theResource, firstTCPPort, "80"),
+					sdk.TestCheckResourceAttr(theResource, firstUDPPort, "80"),
+				),
+			},
+			// no changes
+			{
+				Config:   configResourceWithPortRange(terraformResource, remoteNetworkName, resourceName, `"82-83", "80"`),
+				PlanOnly: true,
+			},
+			// no changes
+			{
+				Config:   configResourceWithPortRange(terraformResource, remoteNetworkName, resourceName, `"82", "83", "80"`),
+				PlanOnly: true,
+			},
+			// new changes applied
+			{
+				Config: configResourceWithPortRange(terraformResource, remoteNetworkName, resourceName, `"70", "82-83"`),
+				Check: acctests.ComposeTestCheckFunc(
+					acctests.CheckTwingateResourceExists(theResource),
+					sdk.TestCheckResourceAttr(theResource, firstTCPPort, "70"),
+					sdk.TestCheckResourceAttr(theResource, firstUDPPort, "70"),
+				),
+			},
+		},
+	})
+}
+
+func configResourceWithPortRange(terraformResource, networkName, resourceName, portRange string) string {
 	return acctests.Nprintf(`
     resource "twingate_remote_network" "${network_resource}" {
       name = "${network_name}"
@@ -580,6 +624,7 @@ func configResourceWithRestrictedPolicyAndPortRange(terraformResource, networkNa
         }
         udp {
           policy = "${udp_policy}"
+          ports = [${port_range}]
         }
       }
     }
@@ -587,82 +632,20 @@ func configResourceWithRestrictedPolicyAndPortRange(terraformResource, networkNa
 		map[string]any{
 			"network_resource":  terraformResource,
 			"network_name":      networkName,
-			"port_range":        portRange,
 			"resource_resource": terraformResource,
 			"resource_name":     resourceName,
 			"tcp_policy":        model.PolicyRestricted,
-			"udp_policy":        model.PolicyAllowAll,
+			"udp_policy":        model.PolicyRestricted,
+			"port_range":        portRange,
 		})
-}
 
-func TestAccTwingateResourcePortReorderingCreatesNoChanges(t *testing.T) {
-	const theResource = "twingate_resource.test9"
-	remoteNetworkName := test.RandomName()
-	resourceName := test.RandomResourceName()
-
-	sdk.Test(t, sdk.TestCase{
-		ProtoV6ProviderFactories: acctests.ProviderFactories,
-		PreCheck:                 func() { acctests.PreCheck(t) },
-		CheckDestroy:             acctests.CheckTwingateResourceDestroy,
-		Steps: []sdk.TestStep{
-			{
-				Config: createResourceWithPortRange(remoteNetworkName, resourceName, `"80", "82-83"`),
-				Check: acctests.ComposeTestCheckFunc(
-					acctests.CheckTwingateResourceExists(theResource),
-					sdk.TestCheckResourceAttr(theResource, firstTCPPort, "80"),
-					sdk.TestCheckResourceAttr(theResource, firstUDPPort, "80"),
-				),
-			},
-			// no changes
-			{
-				Config:   createResourceWithPortRange(remoteNetworkName, resourceName, `"82-83", "80"`),
-				PlanOnly: true,
-			},
-			// no changes
-			{
-				Config:   createResourceWithPortRange(remoteNetworkName, resourceName, `"82", "83", "80"`),
-				PlanOnly: true,
-			},
-			// new changes applied
-			{
-				Config: createResourceWithPortRange(remoteNetworkName, resourceName, `"70", "82-83"`),
-				Check: acctests.ComposeTestCheckFunc(
-					acctests.CheckTwingateResourceExists(theResource),
-					sdk.TestCheckResourceAttr(theResource, firstTCPPort, "70"),
-					sdk.TestCheckResourceAttr(theResource, firstUDPPort, "70"),
-				),
-			},
-		},
-	})
-}
-
-func createResourceWithPortRange(networkName, resourceName, portRange string) string {
-	return fmt.Sprintf(`
-	resource "twingate_remote_network" "test9" {
-	  name = "%s"
-	}
-
-	resource "twingate_resource" "test9" {
-	  name = "%s"
-	  address = "acc-test.com"
-	  remote_network_id = twingate_remote_network.test9.id
-	  protocols {
-	    allow_icmp = true
-	    tcp {
-	      policy = "%s"
-	      ports = [%s]
-	    }
-	    udp {
-	      policy = "%s"
-	      ports = [%s]
-	    }
-	  }
-	}
-	`, networkName, resourceName, model.PolicyRestricted, portRange, model.PolicyRestricted, portRange)
 }
 
 func TestAccTwingateResourcePortsRepresentationChanged(t *testing.T) {
-	const theResource = "twingate_resource.test9"
+	t.Parallel()
+
+	terraformResource := test.RandomResourceName()
+	theResource := acctests.TerraformResource(terraformResource)
 	remoteNetworkName := test.RandomName()
 	resourceName := test.RandomResourceName()
 
@@ -672,7 +655,7 @@ func TestAccTwingateResourcePortsRepresentationChanged(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateResourceDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: createResourceWithPortRange(remoteNetworkName, resourceName, `"82", "83", "80"`),
+				Config: configResourceWithPortRange(terraformResource, remoteNetworkName, resourceName, `"82", "83", "80"`),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					sdk.TestCheckResourceAttr(theResource, tcpPortsLen, "3"),
@@ -683,7 +666,10 @@ func TestAccTwingateResourcePortsRepresentationChanged(t *testing.T) {
 }
 
 func TestAccTwingateResourcePortsNotChanged(t *testing.T) {
-	const theResource = "twingate_resource.test9"
+	t.Parallel()
+
+	terraformResource := test.RandomResourceName()
+	theResource := acctests.TerraformResource(terraformResource)
 	remoteNetworkName := test.RandomName()
 	resourceName := test.RandomResourceName()
 
@@ -693,7 +679,7 @@ func TestAccTwingateResourcePortsNotChanged(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateResourceDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: createResourceWithPortRange(remoteNetworkName, resourceName, `"82", "83", "80"`),
+				Config: configResourceWithPortRange(terraformResource, remoteNetworkName, resourceName, `"82", "83", "80"`),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					sdk.TestCheckResourceAttr(theResource, tcpPortsLen, "3"),
@@ -701,7 +687,7 @@ func TestAccTwingateResourcePortsNotChanged(t *testing.T) {
 			},
 			{
 				PlanOnly: true,
-				Config:   createResourceWithPortRange(remoteNetworkName, resourceName, `"80", "82-83"`),
+				Config:   configResourceWithPortRange(terraformResource, remoteNetworkName, resourceName, `"80", "82-83"`),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					sdk.TestCheckResourceAttr(theResource, tcpPortsLen, "2"),
@@ -712,7 +698,10 @@ func TestAccTwingateResourcePortsNotChanged(t *testing.T) {
 }
 
 func TestAccTwingateResourcePortReorderingNoChanges(t *testing.T) {
-	const theResource = "twingate_resource.test9"
+	t.Parallel()
+
+	terraformResource := test.RandomResourceName()
+	theResource := acctests.TerraformResource(terraformResource)
 	remoteNetworkName := test.RandomName()
 	resourceName := test.RandomResourceName()
 
@@ -722,7 +711,7 @@ func TestAccTwingateResourcePortReorderingNoChanges(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateResourceDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: createResourceWithPortRange(remoteNetworkName, resourceName, `"82", "83", "80"`),
+				Config: configResourceWithPortRange(terraformResource, remoteNetworkName, resourceName, `"82", "83", "80"`),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					sdk.TestCheckResourceAttr(theResource, firstTCPPort, "82"),
@@ -731,12 +720,12 @@ func TestAccTwingateResourcePortReorderingNoChanges(t *testing.T) {
 			},
 			// no changes
 			{
-				Config:   createResourceWithPortRange(remoteNetworkName, resourceName, `"82-83", "80"`),
+				Config:   configResourceWithPortRange(terraformResource, remoteNetworkName, resourceName, `"82-83", "80"`),
 				PlanOnly: true,
 			},
 			// no changes
 			{
-				Config:   createResourceWithPortRange(remoteNetworkName, resourceName, `"82-83", "80"`),
+				Config:   configResourceWithPortRange(terraformResource, remoteNetworkName, resourceName, `"82-83", "80"`),
 				PlanOnly: true,
 				Check: acctests.ComposeTestCheckFunc(
 					sdk.TestCheckResourceAttr(theResource, udpPortsLen, "2"),
@@ -744,7 +733,7 @@ func TestAccTwingateResourcePortReorderingNoChanges(t *testing.T) {
 			},
 			// new changes applied
 			{
-				Config: createResourceWithPortRange(remoteNetworkName, resourceName, `"70", "82-83"`),
+				Config: configResourceWithPortRange(terraformResource, remoteNetworkName, resourceName, `"70", "82-83"`),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					sdk.TestCheckResourceAttr(theResource, firstTCPPort, "70"),
@@ -756,8 +745,10 @@ func TestAccTwingateResourcePortReorderingNoChanges(t *testing.T) {
 }
 
 func TestAccTwingateResourceSetActiveStateOnUpdate(t *testing.T) {
-	const terraformResourceName = "test10"
-	theResource := acctests.TerraformResource(terraformResourceName)
+	t.Parallel()
+
+	terraformResource := test.RandomResourceName()
+	theResource := acctests.TerraformResource(terraformResource)
 	remoteNetworkName := test.RandomName()
 	resourceName := test.RandomResourceName()
 
@@ -767,7 +758,7 @@ func TestAccTwingateResourceSetActiveStateOnUpdate(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateResourceDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: configResourceWithNetwork(terraformResourceName, remoteNetworkName, resourceName),
+				Config: configResourceWithNetwork(terraformResource, remoteNetworkName, resourceName),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					acctests.DeactivateTwingateResource(theResource),
@@ -776,7 +767,7 @@ func TestAccTwingateResourceSetActiveStateOnUpdate(t *testing.T) {
 				),
 			},
 			{
-				Config: configResourceWithNetwork(terraformResourceName, remoteNetworkName, resourceName),
+				Config: configResourceWithNetwork(terraformResource, remoteNetworkName, resourceName),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceActiveState(theResource, true),
 				),
@@ -786,8 +777,10 @@ func TestAccTwingateResourceSetActiveStateOnUpdate(t *testing.T) {
 }
 
 func TestAccTwingateResourceReCreateAfterDeletion(t *testing.T) {
-	const terraformResourceName = "test10"
-	theResource := acctests.TerraformResource(terraformResourceName)
+	t.Parallel()
+
+	terraformResource := test.RandomResourceName()
+	theResource := acctests.TerraformResource(terraformResource)
 	remoteNetworkName := test.RandomName()
 	resourceName := test.RandomResourceName()
 
@@ -797,7 +790,7 @@ func TestAccTwingateResourceReCreateAfterDeletion(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateResourceDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: configResourceWithNetwork(terraformResourceName, remoteNetworkName, resourceName),
+				Config: configResourceWithNetwork(terraformResource, remoteNetworkName, resourceName),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					acctests.DeleteTwingateResource(theResource, resource.TwingateResource),
@@ -805,7 +798,7 @@ func TestAccTwingateResourceReCreateAfterDeletion(t *testing.T) {
 				ExpectNonEmptyPlan: true,
 			},
 			{
-				Config: configResourceWithNetwork(terraformResourceName, remoteNetworkName, resourceName),
+				Config: configResourceWithNetwork(terraformResource, remoteNetworkName, resourceName),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 				),
@@ -815,10 +808,11 @@ func TestAccTwingateResourceReCreateAfterDeletion(t *testing.T) {
 }
 
 func TestAccTwingateResourceImport(t *testing.T) {
-	const theResource = "twingate_resource.test12"
+	t.Parallel()
+
+	terraformResource := test.RandomResourceName()
+	theResource := acctests.TerraformResource(terraformResource)
 	remoteNetworkName := test.RandomName()
-	groupName := test.RandomGroupName()
-	groupName2 := test.RandomGroupName()
 	resourceName := test.RandomResourceName()
 
 	sdk.Test(t, sdk.TestCase{
@@ -827,7 +821,7 @@ func TestAccTwingateResourceImport(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateResourceDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: createResource12(remoteNetworkName, groupName, groupName2, resourceName),
+				Config: configResourceWithPortRange(terraformResource, remoteNetworkName, resourceName, `"80", "82-83"`),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 				),
@@ -836,51 +830,14 @@ func TestAccTwingateResourceImport(t *testing.T) {
 				ImportState:  true,
 				ResourceName: theResource,
 				ImportStateCheck: acctests.CheckImportState(map[string]string{
-					attr.Address: "acc-test.com.12",
+					attr.Address: "new-acc-test.com",
 					tcpPolicy:    model.PolicyRestricted,
 					tcpPortsLen:  "2",
 					firstTCPPort: "80",
-					udpPolicy:    model.PolicyAllowAll,
-					udpPortsLen:  "0",
 				}),
 			},
 		},
 	})
-}
-
-func createResource12(networkName, groupName1, groupName2, resourceName string) string {
-	return fmt.Sprintf(`
-	resource "twingate_remote_network" "test12" {
-	  name = "%s"
-	}
-
-    resource "twingate_group" "g121" {
-      name = "%s"
-    }
-
-    resource "twingate_group" "g122" {
-      name = "%s"
-    }
-
-	resource "twingate_resource" "test12" {
-	  name = "%s"
-	  address = "acc-test.com.12"
-	  remote_network_id = twingate_remote_network.test12.id
-	  access {
-	    group_ids = [twingate_group.g121.id, twingate_group.g122.id]
-      }
-      protocols {
-		allow_icmp = true
-        tcp  {
-			policy = "%s"
-            ports = ["80", "82-83"]
-        }
-		udp {
- 			policy = "%s"
-		}
-      }
-	}
-	`, networkName, groupName1, groupName2, resourceName, model.PolicyRestricted, model.PolicyAllowAll)
 }
 
 func genNewGroups(resourcePrefix string, count int) ([]string, []string) {
