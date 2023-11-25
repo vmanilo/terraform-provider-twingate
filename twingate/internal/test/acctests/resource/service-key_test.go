@@ -15,7 +15,7 @@ import (
 
 var ErrEmptyValue = errors.New("empty value")
 
-func createServiceKey(resourceName, serviceAccountName string) string {
+func configServiceKey(resourceName, serviceAccountName string) string {
 	return acctests.Nprintf(`
 	${service_account}
 
@@ -24,13 +24,13 @@ func createServiceKey(resourceName, serviceAccountName string) string {
 	}
 	`,
 		map[string]any{
-			"service_account":              createServiceAccount(resourceName, serviceAccountName),
+			"service_account":              configServiceAccount(resourceName, serviceAccountName),
 			"service_account_key_resource": resourceName,
 			"service_account_resource":     resourceName,
 		})
 }
 
-func createServiceKeyWithName(resourceName, serviceAccountName, serviceKeyName string) string {
+func configServiceKeyWithName(resourceName, serviceAccountName, serviceKeyName string) string {
 	return acctests.Nprintf(`
 	${service_account}
 
@@ -40,14 +40,14 @@ func createServiceKeyWithName(resourceName, serviceAccountName, serviceKeyName s
 	}
 	`,
 		map[string]any{
-			"service_account":              createServiceAccount(resourceName, serviceAccountName),
+			"service_account":              configServiceAccount(resourceName, serviceAccountName),
 			"service_account_key_resource": resourceName,
 			"service_account_resource":     resourceName,
 			"name":                         serviceKeyName,
 		})
 }
 
-func createServiceKeyWithExpiration(resourceName, serviceAccountName string, expirationTime int) string {
+func configServiceKeyWithExpiration(resourceName, serviceAccountName string, expirationTime int) string {
 	return acctests.Nprintf(`
 	${service_account}
 
@@ -57,7 +57,7 @@ func createServiceKeyWithExpiration(resourceName, serviceAccountName string, exp
 	}
 	`,
 		map[string]any{
-			"service_account":              createServiceAccount(resourceName, serviceAccountName),
+			"service_account":              configServiceAccount(resourceName, serviceAccountName),
 			"service_account_key_resource": resourceName,
 			"service_account_resource":     resourceName,
 			"expiration_time":              expirationTime,
@@ -86,7 +86,7 @@ func TestAccTwingateServiceKeyCreateUpdate(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateServiceAccountDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: createServiceKey(terraformResourceName, serviceAccountName),
+				Config: configServiceKey(terraformResourceName, serviceAccountName),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(serviceAccount),
 					sdk.TestCheckResourceAttr(serviceAccount, attr.Name, serviceAccountName),
@@ -95,7 +95,7 @@ func TestAccTwingateServiceKeyCreateUpdate(t *testing.T) {
 				),
 			},
 			{
-				Config: createServiceKey(terraformResourceName, serviceAccountName),
+				Config: configServiceKey(terraformResourceName, serviceAccountName),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(serviceAccount),
 					sdk.TestCheckResourceAttr(serviceAccount, attr.Name, serviceAccountName),
@@ -123,7 +123,7 @@ func TestAccTwingateServiceKeyCreateUpdateWithName(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateServiceAccountDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: createServiceKeyWithName(terraformResourceName, serviceAccountName, name1),
+				Config: configServiceKeyWithName(terraformResourceName, serviceAccountName, name1),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(serviceAccount),
 					sdk.TestCheckResourceAttr(serviceAccount, attr.Name, serviceAccountName),
@@ -133,7 +133,7 @@ func TestAccTwingateServiceKeyCreateUpdateWithName(t *testing.T) {
 				),
 			},
 			{
-				Config: createServiceKeyWithName(terraformResourceName, serviceAccountName, name2),
+				Config: configServiceKeyWithName(terraformResourceName, serviceAccountName, name2),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(serviceAccount),
 					sdk.TestCheckResourceAttr(serviceAccount, attr.Name, serviceAccountName),
@@ -162,7 +162,7 @@ func TestAccTwingateServiceKeyWontReCreateAfterInactive(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateServiceAccountDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: createServiceKey(terraformResourceName, serviceAccountName),
+				Config: configServiceKey(terraformResourceName, serviceAccountName),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(serviceKey),
 					acctests.GetTwingateResourceID(serviceKey, &resourceID),
@@ -173,7 +173,7 @@ func TestAccTwingateServiceKeyWontReCreateAfterInactive(t *testing.T) {
 				),
 			},
 			{
-				Config: createServiceKey(terraformResourceName, serviceAccountName),
+				Config: configServiceKey(terraformResourceName, serviceAccountName),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(serviceKey),
 					sdk.TestCheckResourceAttr(serviceKey, attr.IsActive, "false"),
@@ -208,7 +208,7 @@ func TestAccTwingateServiceKeyDelete(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateServiceAccountDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config:  createServiceKey(terraformResourceName, serviceAccountName),
+				Config:  configServiceKey(terraformResourceName, serviceAccountName),
 				Destroy: true,
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceDoesNotExists(serviceKey),
@@ -231,7 +231,7 @@ func TestAccTwingateServiceKeyReCreateAfterDeletion(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateServiceAccountDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: createServiceKey(terraformResourceName, serviceAccountName),
+				Config: configServiceKey(terraformResourceName, serviceAccountName),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(serviceKey),
 					acctests.RevokeTwingateServiceKey(serviceKey),
@@ -240,7 +240,7 @@ func TestAccTwingateServiceKeyReCreateAfterDeletion(t *testing.T) {
 				ExpectNonEmptyPlan: true,
 			},
 			{
-				Config: createServiceKey(terraformResourceName, serviceAccountName),
+				Config: configServiceKey(terraformResourceName, serviceAccountName),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(serviceKey),
 					sdk.TestCheckResourceAttrWith(serviceKey, attr.Token, nonEmptyValue),
@@ -262,11 +262,11 @@ func TestAccTwingateServiceKeyCreateWithInvalidExpiration(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateServiceAccountDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config:      createServiceKeyWithExpiration(terraformResourceName, serviceAccountName, -1),
+				Config:      configServiceKeyWithExpiration(terraformResourceName, serviceAccountName, -1),
 				ExpectError: regexp.MustCompile(resource.ErrInvalidExpirationTime.Error()),
 			},
 			{
-				Config:      createServiceKeyWithExpiration(terraformResourceName, serviceAccountName, 366),
+				Config:      configServiceKeyWithExpiration(terraformResourceName, serviceAccountName, 366),
 				ExpectError: regexp.MustCompile(resource.ErrInvalidExpirationTime.Error()),
 			},
 		},
@@ -287,7 +287,7 @@ func TestAccTwingateServiceKeyCreateWithExpiration(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateServiceAccountDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: createServiceKeyWithExpiration(terraformResourceName, serviceAccountName, 365),
+				Config: configServiceKeyWithExpiration(terraformResourceName, serviceAccountName, 365),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(serviceAccount),
 					sdk.TestCheckResourceAttr(serviceAccount, attr.Name, serviceAccountName),
@@ -315,7 +315,7 @@ func TestAccTwingateServiceKeyReCreateAfterChangingExpirationTime(t *testing.T) 
 		CheckDestroy:             acctests.CheckTwingateServiceAccountDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: createServiceKeyWithExpiration(terraformResourceName, serviceAccountName, 1),
+				Config: configServiceKeyWithExpiration(terraformResourceName, serviceAccountName, 1),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(serviceKey),
 					acctests.GetTwingateResourceID(serviceKey, &resourceID),
@@ -323,7 +323,7 @@ func TestAccTwingateServiceKeyReCreateAfterChangingExpirationTime(t *testing.T) 
 				),
 			},
 			{
-				Config: createServiceKeyWithExpiration(terraformResourceName, serviceAccountName, 2),
+				Config: configServiceKeyWithExpiration(terraformResourceName, serviceAccountName, 2),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(serviceKey),
 					sdk.TestCheckResourceAttrWith(serviceKey, attr.ID, func(value string) error {
@@ -364,7 +364,7 @@ func TestAccTwingateServiceKeyAndServiceAccountLifecycle(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateServiceAccountDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: createServiceKeyV1(terraformServiceAccountName, serviceAccountName, terraformServiceAccountNameV2, serviceAccountNameV2, terraformServiceAccountKeyName, terraformServiceAccountName),
+				Config: configTwoServiceAccounts(terraformServiceAccountName, serviceAccountName, terraformServiceAccountNameV2, serviceAccountNameV2, terraformServiceAccountKeyName, terraformServiceAccountName),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(serviceAccount),
 					sdk.TestCheckResourceAttr(serviceAccount, attr.Name, serviceAccountName),
@@ -375,7 +375,7 @@ func TestAccTwingateServiceKeyAndServiceAccountLifecycle(t *testing.T) {
 				),
 			},
 			{
-				Config: createServiceKeyV1(terraformServiceAccountName, serviceAccountName, terraformServiceAccountNameV2, serviceAccountNameV2, terraformServiceAccountKeyName, terraformServiceAccountNameV2),
+				Config: configTwoServiceAccounts(terraformServiceAccountName, serviceAccountName, terraformServiceAccountNameV2, serviceAccountNameV2, terraformServiceAccountKeyName, terraformServiceAccountNameV2),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(serviceAccountV2),
 					sdk.TestCheckResourceAttr(serviceAccountV2, attr.Name, serviceAccountNameV2),
@@ -412,7 +412,7 @@ func TestAccTwingateServiceKeyAndServiceAccountLifecycle(t *testing.T) {
 	})
 }
 
-func createServiceKeyV1(terraformServiceAccountName, serviceAccountName, terraformServiceAccountNameV2, serviceAccountNameV2, terraformServiceAccountKeyName, serviceAccount string) string {
+func configTwoServiceAccounts(terraformServiceAccountName, serviceAccountName, terraformServiceAccountNameV2, serviceAccountNameV2, terraformServiceAccountKeyName, serviceAccount string) string {
 	return acctests.Nprintf(`
 	resource "twingate_service_account" "${service_account_resource_1}" {
 	  name = "${name_1}"

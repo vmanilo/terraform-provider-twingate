@@ -10,7 +10,7 @@ import (
 	sdk "github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
 
-func createServiceAccount(resourceName, serviceAccountName string) string {
+func configServiceAccount(resourceName, serviceAccountName string) string {
 	return acctests.Nprintf(`
 	resource "twingate_service_account" "${service_account_resource}" {
 	  name = "${name}"
@@ -36,14 +36,14 @@ func TestAccTwingateServiceAccountCreateUpdate(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateServiceAccountDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: createServiceAccount(resourceName, name1),
+				Config: configServiceAccount(resourceName, name1),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					sdk.TestCheckResourceAttr(theResource, attr.Name, name1),
 				),
 			},
 			{
-				Config: createServiceAccount(resourceName, name2),
+				Config: configServiceAccount(resourceName, name2),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					sdk.TestCheckResourceAttr(theResource, attr.Name, name2),
@@ -66,7 +66,7 @@ func TestAccTwingateServiceAccountDeleteNonExisting(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateServiceAccountDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config:  createServiceAccount(resourceName, name),
+				Config:  configServiceAccount(resourceName, name),
 				Destroy: true,
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceDoesNotExists(theResource),
@@ -89,7 +89,7 @@ func TestAccTwingateServiceAccountReCreateAfterDeletion(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateServiceAccountDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: createServiceAccount(resourceName, name),
+				Config: configServiceAccount(resourceName, name),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					acctests.DeleteTwingateResource(theResource, resource.TwingateServiceAccount),
@@ -98,7 +98,7 @@ func TestAccTwingateServiceAccountReCreateAfterDeletion(t *testing.T) {
 				ExpectNonEmptyPlan: true,
 			},
 			{
-				Config: createServiceAccount(resourceName, name),
+				Config: configServiceAccount(resourceName, name),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 				),
