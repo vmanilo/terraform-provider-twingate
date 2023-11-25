@@ -48,6 +48,18 @@ func ErrUsersLenMismatch(expected, actual int) error {
 	return fmt.Errorf("expected %d users, actual - %d", expected, actual) //nolint
 }
 
+// Nprintf - this is a Printf sibling (Nprintf; Named Printf), which handles strings like
+// Nprintf("Hello %{target}!", map[string]interface{}{"target":"world"}) == "Hello world!".
+// This is particularly useful for generated tests, where we don't want to use Printf,
+// since that would require us to generate a very particular ordering of arguments.
+func Nprintf(format string, params map[string]interface{}) string {
+	for key, val := range params {
+		format = strings.ReplaceAll(format, "${"+key+"}", fmt.Sprintf("%v", val))
+	}
+
+	return format
+}
+
 var providerClient = func() *client.Client { //nolint
 	client, err := test.TwingateClient()
 	if err != nil {
@@ -80,10 +92,10 @@ var ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){ //n
 	},
 }
 
-func SetPageLimit(limit int) {
-	if err := os.Setenv(client.EnvPageLimit, strconv.Itoa(limit)); err != nil {
-		log.Fatal("failed to set page limit", err)
-	}
+// SetPageLimit - changes page limit, can't be uses in parallel tests.
+func SetPageLimit(t *testing.T, limit int) {
+	t.Helper()
+	t.Setenv(client.EnvPageLimit, strconv.Itoa(limit))
 }
 
 const WaitDuration = 500 * time.Millisecond
