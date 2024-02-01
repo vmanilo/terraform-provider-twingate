@@ -12,6 +12,7 @@ import (
 	"github.com/Twingate/terraform-provider-twingate/twingate/internal/test"
 	"github.com/Twingate/terraform-provider-twingate/twingate/internal/test/acctests"
 	sdk "github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 )
 
 type User struct {
@@ -270,9 +271,14 @@ func TestAccTwingateUserDelete(t *testing.T) {
 			{
 				Config:  configBuilder(user),
 				Destroy: true,
-				Check: acctests.ComposeTestCheckFunc(
-					acctests.CheckTwingateResourceDoesNotExists(user.TerraformResource()),
-				),
+			},
+			{
+				Config: configBuilder(user),
+				ConfigPlanChecks: sdk.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction(user.TerraformResource(), plancheck.ResourceActionCreate),
+					},
+				},
 			},
 		},
 	})

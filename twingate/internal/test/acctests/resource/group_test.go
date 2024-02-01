@@ -12,6 +12,7 @@ import (
 	"github.com/Twingate/terraform-provider-twingate/twingate/internal/test/acctests"
 	"github.com/Twingate/terraform-provider-twingate/twingate/internal/utils"
 	sdk "github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 )
 
 const attrTerraformResource = "terraform_resource"
@@ -227,9 +228,14 @@ func TestAccTwingateGroupDeleteNonExisting(t *testing.T) {
 			{
 				Config:  configBuilder(group),
 				Destroy: true,
-				Check: acctests.ComposeTestCheckFunc(
-					acctests.CheckTwingateResourceDoesNotExists(group.TerraformResource()),
-				),
+			},
+			{
+				Config: configBuilder(group),
+				ConfigPlanChecks: sdk.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction(group.TerraformResource(), plancheck.ResourceActionCreate),
+					},
+				},
 			},
 		},
 	})

@@ -11,6 +11,7 @@ import (
 	"github.com/Twingate/terraform-provider-twingate/twingate/internal/test"
 	"github.com/Twingate/terraform-provider-twingate/twingate/internal/test/acctests"
 	sdk "github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 )
 
 var ErrEmptyValue = errors.New("empty value")
@@ -210,9 +211,14 @@ func TestAccTwingateServiceKeyDelete(t *testing.T) {
 			{
 				Config:  configServiceKey(terraformResourceName, serviceAccountName),
 				Destroy: true,
-				Check: acctests.ComposeTestCheckFunc(
-					acctests.CheckTwingateResourceDoesNotExists(serviceKey),
-				),
+			},
+			{
+				Config: configServiceKey(terraformResourceName, serviceAccountName),
+				ConfigPlanChecks: sdk.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction(serviceKey, plancheck.ResourceActionCreate),
+					},
+				},
 			},
 		},
 	})

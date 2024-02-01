@@ -9,6 +9,7 @@ import (
 	"github.com/Twingate/terraform-provider-twingate/twingate/internal/test"
 	"github.com/Twingate/terraform-provider-twingate/twingate/internal/test/acctests"
 	sdk "github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 )
 
 func TestAccTwingateRemoteNetworkCreate(t *testing.T) {
@@ -108,9 +109,14 @@ func TestAccTwingateRemoteNetworkDeleteNonExisting(t *testing.T) {
 			{
 				Config:  configRemoteNetwork(networkResource, test.RandomName()),
 				Destroy: true,
-				Check: acctests.ComposeTestCheckFunc(
-					acctests.CheckTwingateResourceDoesNotExists(theResource),
-				),
+			},
+			{
+				Config: configRemoteNetwork(networkResource, test.RandomName()),
+				ConfigPlanChecks: sdk.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction(theResource, plancheck.ResourceActionCreate),
+					},
+				},
 			},
 		},
 	})
