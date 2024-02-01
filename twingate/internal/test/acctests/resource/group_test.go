@@ -15,8 +15,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 )
 
-const attrTerraformResource = "terraform_resource"
-
 func collectResourceIDs[T TerraformResource](resources ...T) []string {
 	ids := make([]string, 0, len(resources))
 
@@ -189,7 +187,7 @@ func TestAccTwingateGroupCreateUpdate(t *testing.T) {
 	name1 := test.RandomName()
 	name2 := test.RandomName()
 
-	group := NewGroup().Set(attr.Name, name1)
+	group := NewGroup()
 	theResource := group.TerraformResource()
 
 	sdk.Test(t, sdk.TestCase{
@@ -198,7 +196,7 @@ func TestAccTwingateGroupCreateUpdate(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateGroupDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: configBuilder(group),
+				Config: configBuilder(group.Set(attr.Name, name1)),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					sdk.TestCheckResourceAttr(theResource, attr.Name, name1),
