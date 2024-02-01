@@ -314,3 +314,22 @@ func TestAccRemoteConnectorCreateWithNotificationStatusFalse(t *testing.T) {
 		},
 	})
 }
+
+func terraformResourceTwingateConnectorWithNotificationStatus(terraformRemoteNetworkName, terraformConnectorName, remoteNetworkName string, notificationStatus bool) string {
+	return fmt.Sprintf(`
+	%s
+
+	resource "twingate_connector" "%s" {
+	  remote_network_id = twingate_remote_network.%s.id
+	  status_updates_enabled = %v
+	}
+	`, terraformResourceRemoteNetwork(terraformRemoteNetworkName, remoteNetworkName), terraformConnectorName, terraformRemoteNetworkName, notificationStatus)
+}
+
+func terraformResourceRemoteNetwork(terraformResourceName, name string) string {
+	return fmt.Sprintf(`
+	resource "twingate_remote_network" "%s" {
+	  name = "%s"
+	}
+	`, terraformResourceName, name)
+}

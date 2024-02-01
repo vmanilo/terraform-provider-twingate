@@ -1031,6 +1031,7 @@ func TestAccTwingateResourceAddAccessGroupsAndServiceAccounts(t *testing.T) {
 	groups, groupsID := genNewGroups(terraformResource, 1)
 	serviceAccountConfig := []string{configServiceAccount(terraformResource, test.RandomName())}
 	serviceAccountID := []string{acctests.TerraformServiceAccount(terraformResource) + ".id"}
+	resourceName := test.RandomName()
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -1038,7 +1039,7 @@ func TestAccTwingateResourceAddAccessGroupsAndServiceAccounts(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateResourceDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: configResourceWithGroupsAndServiceAccounts(terraformResource, test.RandomName(), test.RandomResourceName(), groups, groupsID, serviceAccountConfig, serviceAccountID),
+				Config: configResourceWithGroupsAndServiceAccounts(terraformResource, resourceName, test.RandomResourceName(), groups, groupsID, serviceAccountConfig, serviceAccountID),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					sdk.TestCheckResourceAttr(theResource, accessGroupIdsLen, "1"),
@@ -1046,7 +1047,7 @@ func TestAccTwingateResourceAddAccessGroupsAndServiceAccounts(t *testing.T) {
 				),
 			},
 			{
-				Config: createResource16WithoutServiceAccounts(remoteNetworkName, resourceName, groups, groupsID, createServiceAccount(resourceName, serviceAccountName)),
+				Config: createResource16WithoutServiceAccounts(terraformResource, resourceName, groups, groupsID, serviceAccountConfig[0]),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					sdk.TestCheckResourceAttr(theResource, accessGroupIdsLen, "1"),
@@ -1054,7 +1055,7 @@ func TestAccTwingateResourceAddAccessGroupsAndServiceAccounts(t *testing.T) {
 				),
 			},
 			{
-				Config: createResource16WithoutGroups(remoteNetworkName, resourceName, groups, groupsID, createServiceAccount(resourceName, serviceAccountName)),
+				Config: createResource16WithoutGroups(terraformResource, resourceName, groups, groupsID, serviceAccountConfig[0]),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					sdk.TestCheckResourceAttr(theResource, accessGroupIdsLen, "0"),
