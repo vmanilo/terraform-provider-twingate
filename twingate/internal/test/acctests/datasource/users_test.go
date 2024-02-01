@@ -1,6 +1,7 @@
 package datasource
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
@@ -12,6 +13,12 @@ import (
 
 func TestAccDatasourceTwingateUsers_basic(t *testing.T) {
 	acctests.SetPageLimit(t, 1)
+
+	users, err := acctests.GetTestUsers()
+	if err != nil && !errors.Is(err, acctests.ErrResourceNotFound) {
+		t.Skip("can't run test:", err)
+	}
+
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
 		PreCheck:                 func() { acctests.PreCheck(t) },
@@ -19,7 +26,7 @@ func TestAccDatasourceTwingateUsers_basic(t *testing.T) {
 			{
 				Config: testDatasourceTwingateUsers(),
 				Check: acctests.ComposeTestCheckFunc(
-					testCheckResourceAttrNotEqual("data.twingate_users.all", attr.Len(attr.Users), "0"),
+					resource.TestCheckResourceAttr("data.twingate_users.all", attr.Len(attr.Users), fmt.Sprintf("%d", len(users))),
 				),
 			},
 		},
