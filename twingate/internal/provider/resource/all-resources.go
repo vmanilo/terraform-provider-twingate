@@ -9,6 +9,7 @@ const (
 	TwingateServiceAccount    = "twingate_service_account"
 	TwingateServiceAccountKey = "twingate_service_account_key"
 	TwingateUser              = "twingate_user"
+	TwingateSerialNumbers     = "twingate_serial_numbers"
 
 	operationCreate = "create"
 	operationRead   = "read"
