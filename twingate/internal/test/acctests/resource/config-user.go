@@ -19,7 +19,7 @@ type User struct {
 }
 
 func NewUser(terraformResourceName ...string) *User {
-	resourceName := test.RandomUserName()
+	resourceName := test.RandomResourceName()
 	if len(terraformResourceName) > 0 {
 		resourceName = terraformResourceName[0]
 	}

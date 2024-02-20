@@ -16,55 +16,6 @@ import (
 
 var ErrEmptyValue = errors.New("empty value")
 
-func configServiceKey(resourceName, serviceAccountName string) string {
-	return acctests.Nprintf(`
-	${service_account}
-
-	resource "twingate_service_account_key" "${service_account_key_resource}" {
-	  service_account_id = twingate_service_account.${service_account_resource}.id
-	}
-	`,
-		map[string]any{
-			"service_account":              configServiceAccount(resourceName, serviceAccountName),
-			"service_account_key_resource": resourceName,
-			"service_account_resource":     resourceName,
-		})
-}
-
-func configServiceKeyWithName(resourceName, serviceAccountName, serviceKeyName string) string {
-	return acctests.Nprintf(`
-	${service_account}
-
-	resource "twingate_service_account_key" "${service_account_key_resource}" {
-	  service_account_id = twingate_service_account.${service_account_resource}.id
-	  name = "${name}"
-	}
-	`,
-		map[string]any{
-			"service_account":              configServiceAccount(resourceName, serviceAccountName),
-			"service_account_key_resource": resourceName,
-			"service_account_resource":     resourceName,
-			"name":                         serviceKeyName,
-		})
-}
-
-func configServiceKeyWithExpiration(resourceName, serviceAccountName string, expirationTime int) string {
-	return acctests.Nprintf(`
-	${service_account}
-
-	resource "twingate_service_account_key" "${service_account_key_resource}" {
-	  service_account_id = twingate_service_account.${service_account_resource}.id
-	  expiration_time = ${expiration_time}
-	}
-	`,
-		map[string]any{
-			"service_account":              configServiceAccount(resourceName, serviceAccountName),
-			"service_account_key_resource": resourceName,
-			"service_account_resource":     resourceName,
-			"expiration_time":              expirationTime,
-		})
-}
-
 func nonEmptyValue(value string) error {
 	if value != "" {
 		return nil
@@ -76,10 +27,8 @@ func nonEmptyValue(value string) error {
 func TestAccTwingateServiceKeyCreateUpdate(t *testing.T) {
 	t.Parallel()
 
-	serviceAccountName := test.RandomName()
-	terraformResourceName := test.TerraformRandName("test_key")
-	serviceAccount := acctests.TerraformServiceAccount(terraformResourceName)
-	serviceKey := acctests.TerraformServiceKey(terraformResourceName)
+	serviceAccount := NewServiceAccount()
+	serviceKey := NewServiceAccountKey(serviceAccount.TerraformResourceID())
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -87,21 +36,17 @@ func TestAccTwingateServiceKeyCreateUpdate(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateServiceAccountDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: configServiceKey(terraformResourceName, serviceAccountName),
+				Config: configBuilder(serviceAccount, serviceKey),
 				Check: acctests.ComposeTestCheckFunc(
-					acctests.CheckTwingateResourceExists(serviceAccount),
-					sdk.TestCheckResourceAttr(serviceAccount, attr.Name, serviceAccountName),
-					acctests.CheckTwingateResourceExists(serviceKey),
-					sdk.TestCheckResourceAttrWith(serviceKey, attr.Token, nonEmptyValue),
+					sdk.TestCheckResourceAttr(serviceAccount.TerraformResource(), attr.Name, serviceAccount.Name),
+					sdk.TestCheckResourceAttrWith(serviceKey.TerraformResource(), attr.Token, nonEmptyValue),
 				),
 			},
 			{
-				Config: configServiceKey(terraformResourceName, serviceAccountName),
+				Config: configBuilder(serviceAccount, serviceKey),
 				Check: acctests.ComposeTestCheckFunc(
-					acctests.CheckTwingateResourceExists(serviceAccount),
-					sdk.TestCheckResourceAttr(serviceAccount, attr.Name, serviceAccountName),
-					acctests.CheckTwingateResourceExists(serviceKey),
-					sdk.TestCheckResourceAttrWith(serviceKey, attr.Token, nonEmptyValue),
+					sdk.TestCheckResourceAttr(serviceAccount.TerraformResource(), attr.Name, serviceAccount.Name),
+					sdk.TestCheckResourceAttrWith(serviceKey.TerraformResource(), attr.Token, nonEmptyValue),
 				),
 			},
 		},
@@ -111,10 +56,9 @@ func TestAccTwingateServiceKeyCreateUpdate(t *testing.T) {
 func TestAccTwingateServiceKeyCreateUpdateWithName(t *testing.T) {
 	t.Parallel()
 
-	serviceAccountName := test.RandomName()
-	terraformResourceName := test.TerraformRandName("test_key")
-	serviceAccount := acctests.TerraformServiceAccount(terraformResourceName)
-	serviceKey := acctests.TerraformServiceKey(terraformResourceName)
+	serviceAccount := NewServiceAccount()
+	serviceKey := NewServiceAccountKey(serviceAccount.TerraformResourceID())
+
 	name1 := test.RandomName()
 	name2 := test.RandomName()
 
@@ -124,23 +68,19 @@ func TestAccTwingateServiceKeyCreateUpdateWithName(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateServiceAccountDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: configServiceKeyWithName(terraformResourceName, serviceAccountName, name1),
+				Config: configBuilder(serviceKey.Set(attr.Name, name1), serviceAccount),
 				Check: acctests.ComposeTestCheckFunc(
-					acctests.CheckTwingateResourceExists(serviceAccount),
-					sdk.TestCheckResourceAttr(serviceAccount, attr.Name, serviceAccountName),
-					acctests.CheckTwingateResourceExists(serviceKey),
-					sdk.TestCheckResourceAttr(serviceKey, attr.Name, name1),
-					sdk.TestCheckResourceAttrWith(serviceKey, attr.Token, nonEmptyValue),
+					sdk.TestCheckResourceAttr(serviceAccount.TerraformResource(), attr.Name, serviceAccount.Name),
+					sdk.TestCheckResourceAttr(serviceKey.TerraformResource(), attr.Name, name1),
+					sdk.TestCheckResourceAttrWith(serviceKey.TerraformResource(), attr.Token, nonEmptyValue),
 				),
 			},
 			{
-				Config: configServiceKeyWithName(terraformResourceName, serviceAccountName, name2),
+				Config: configBuilder(serviceKey.Set(attr.Name, name2), serviceAccount),
 				Check: acctests.ComposeTestCheckFunc(
-					acctests.CheckTwingateResourceExists(serviceAccount),
-					sdk.TestCheckResourceAttr(serviceAccount, attr.Name, serviceAccountName),
-					acctests.CheckTwingateResourceExists(serviceKey),
-					sdk.TestCheckResourceAttr(serviceKey, attr.Name, name2),
-					sdk.TestCheckResourceAttrWith(serviceKey, attr.Token, nonEmptyValue),
+					sdk.TestCheckResourceAttr(serviceAccount.TerraformResource(), attr.Name, serviceAccount.Name),
+					sdk.TestCheckResourceAttr(serviceKey.TerraformResource(), attr.Name, name2),
+					sdk.TestCheckResourceAttrWith(serviceKey.TerraformResource(), attr.Token, nonEmptyValue),
 					acctests.WaitTestFunc(),
 				),
 			},
@@ -151,9 +91,8 @@ func TestAccTwingateServiceKeyCreateUpdateWithName(t *testing.T) {
 func TestAccTwingateServiceKeyWontReCreateAfterInactive(t *testing.T) {
 	t.Parallel()
 
-	serviceAccountName := test.RandomName()
-	terraformResourceName := test.TerraformRandName("test_key")
-	serviceKey := acctests.TerraformServiceKey(terraformResourceName)
+	serviceAccount := NewServiceAccount()
+	serviceKey := NewServiceAccountKey(serviceAccount.TerraformResourceID())
 
 	resourceID := new(string)
 
@@ -163,23 +102,23 @@ func TestAccTwingateServiceKeyWontReCreateAfterInactive(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateServiceAccountDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: configServiceKey(terraformResourceName, serviceAccountName),
+				Config: configBuilder(serviceKey, serviceAccount),
 				Check: acctests.ComposeTestCheckFunc(
-					acctests.CheckTwingateResourceExists(serviceKey),
-					acctests.GetTwingateResourceID(serviceKey, &resourceID),
-					sdk.TestCheckResourceAttrWith(serviceKey, attr.Token, nonEmptyValue),
-					acctests.RevokeTwingateServiceKey(serviceKey),
+					acctests.CheckTwingateResourceExists(serviceKey.TerraformResource()),
+					acctests.GetTwingateResourceID(serviceKey.TerraformResource(), &resourceID),
+					sdk.TestCheckResourceAttrWith(serviceKey.TerraformResource(), attr.Token, nonEmptyValue),
+					acctests.RevokeTwingateServiceKey(serviceKey.TerraformResource()),
 					acctests.WaitTestFunc(),
-					acctests.CheckTwingateServiceKeyStatus(serviceKey, model.StatusRevoked),
+					acctests.CheckTwingateServiceKeyStatus(serviceKey.TerraformResource(), model.StatusRevoked),
 				),
 			},
 			{
-				Config: configServiceKey(terraformResourceName, serviceAccountName),
+				Config: configBuilder(serviceKey, serviceAccount),
 				Check: acctests.ComposeTestCheckFunc(
-					acctests.CheckTwingateResourceExists(serviceKey),
-					sdk.TestCheckResourceAttr(serviceKey, attr.IsActive, "false"),
-					sdk.TestCheckResourceAttrWith(serviceKey, attr.Token, nonEmptyValue),
-					sdk.TestCheckResourceAttrWith(serviceKey, attr.ID, func(value string) error {
+					acctests.CheckTwingateResourceExists(serviceKey.TerraformResource()),
+					sdk.TestCheckResourceAttr(serviceKey.TerraformResource(), attr.IsActive, "false"),
+					sdk.TestCheckResourceAttrWith(serviceKey.TerraformResource(), attr.Token, nonEmptyValue),
+					sdk.TestCheckResourceAttrWith(serviceKey.TerraformResource(), attr.ID, func(value string) error {
 						if *resourceID == "" {
 							return errors.New("failed to fetch resource id")
 						}
@@ -199,9 +138,8 @@ func TestAccTwingateServiceKeyWontReCreateAfterInactive(t *testing.T) {
 func TestAccTwingateServiceKeyDelete(t *testing.T) {
 	t.Parallel()
 
-	serviceAccountName := test.RandomName()
-	terraformResourceName := test.TerraformRandName("test_key")
-	serviceKey := acctests.TerraformServiceKey(terraformResourceName)
+	serviceAccount := NewServiceAccount()
+	serviceKey := NewServiceAccountKey(serviceAccount.TerraformResourceID())
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -209,14 +147,14 @@ func TestAccTwingateServiceKeyDelete(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateServiceAccountDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config:  configServiceKey(terraformResourceName, serviceAccountName),
+				Config:  configBuilder(serviceKey, serviceAccount),
 				Destroy: true,
 			},
 			{
-				Config: configServiceKey(terraformResourceName, serviceAccountName),
+				Config: configBuilder(serviceKey, serviceAccount),
 				ConfigPlanChecks: sdk.ConfigPlanChecks{
 					PreApply: []plancheck.PlanCheck{
-						plancheck.ExpectResourceAction(serviceKey, plancheck.ResourceActionCreate),
+						plancheck.ExpectResourceAction(serviceKey.TerraformResource(), plancheck.ResourceActionCreate),
 					},
 				},
 			},
@@ -227,9 +165,8 @@ func TestAccTwingateServiceKeyDelete(t *testing.T) {
 func TestAccTwingateServiceKeyReCreateAfterDeletion(t *testing.T) {
 	t.Parallel()
 
-	serviceAccountName := test.RandomName()
-	terraformResourceName := test.TerraformRandName("test_key")
-	serviceKey := acctests.TerraformServiceKey(terraformResourceName)
+	serviceAccount := NewServiceAccount()
+	serviceKey := NewServiceAccountKey(serviceAccount.TerraformResourceID())
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -237,19 +174,19 @@ func TestAccTwingateServiceKeyReCreateAfterDeletion(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateServiceAccountDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: configServiceKey(terraformResourceName, serviceAccountName),
+				Config: configBuilder(serviceKey, serviceAccount),
 				Check: acctests.ComposeTestCheckFunc(
-					acctests.CheckTwingateResourceExists(serviceKey),
-					acctests.RevokeTwingateServiceKey(serviceKey),
-					acctests.DeleteTwingateResource(serviceKey, resource.TwingateServiceAccountKey),
+					acctests.CheckTwingateResourceExists(serviceKey.TerraformResource()),
+					acctests.RevokeTwingateServiceKey(serviceKey.TerraformResource()),
+					acctests.DeleteTwingateResource(serviceKey.TerraformResource(), resource.TwingateServiceAccountKey),
 				),
 				ExpectNonEmptyPlan: true,
 			},
 			{
-				Config: configServiceKey(terraformResourceName, serviceAccountName),
+				Config: configBuilder(serviceKey, serviceAccount),
 				Check: acctests.ComposeTestCheckFunc(
-					acctests.CheckTwingateResourceExists(serviceKey),
-					sdk.TestCheckResourceAttrWith(serviceKey, attr.Token, nonEmptyValue),
+					acctests.CheckTwingateResourceExists(serviceKey.TerraformResource()),
+					sdk.TestCheckResourceAttrWith(serviceKey.TerraformResource(), attr.Token, nonEmptyValue),
 				),
 			},
 		},
@@ -259,8 +196,8 @@ func TestAccTwingateServiceKeyReCreateAfterDeletion(t *testing.T) {
 func TestAccTwingateServiceKeyCreateWithInvalidExpiration(t *testing.T) {
 	t.Parallel()
 
-	serviceAccountName := test.RandomName()
-	terraformResourceName := test.TerraformRandName("test_key")
+	serviceAccount := NewServiceAccount()
+	serviceKey := NewServiceAccountKey(serviceAccount.TerraformResourceID())
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -268,11 +205,11 @@ func TestAccTwingateServiceKeyCreateWithInvalidExpiration(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateServiceAccountDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config:      configServiceKeyWithExpiration(terraformResourceName, serviceAccountName, -1),
+				Config:      configBuilder(serviceAccount, serviceKey.Set(attr.ExpirationTime, -1)),
 				ExpectError: regexp.MustCompile(resource.ErrInvalidExpirationTime.Error()),
 			},
 			{
-				Config:      configServiceKeyWithExpiration(terraformResourceName, serviceAccountName, 366),
+				Config:      configBuilder(serviceAccount, serviceKey.Set(attr.ExpirationTime, 366)),
 				ExpectError: regexp.MustCompile(resource.ErrInvalidExpirationTime.Error()),
 			},
 		},
@@ -282,10 +219,8 @@ func TestAccTwingateServiceKeyCreateWithInvalidExpiration(t *testing.T) {
 func TestAccTwingateServiceKeyCreateWithExpiration(t *testing.T) {
 	t.Parallel()
 
-	serviceAccountName := test.RandomName()
-	terraformResourceName := test.TerraformRandName("test_key")
-	serviceAccount := acctests.TerraformServiceAccount(terraformResourceName)
-	serviceKey := acctests.TerraformServiceKey(terraformResourceName)
+	serviceAccount := NewServiceAccount()
+	serviceKey := NewServiceAccountKey(serviceAccount.TerraformResourceID())
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -293,13 +228,13 @@ func TestAccTwingateServiceKeyCreateWithExpiration(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateServiceAccountDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: configServiceKeyWithExpiration(terraformResourceName, serviceAccountName, 365),
+				Config: configBuilder(serviceAccount, serviceKey.Set(attr.ExpirationTime, 365)),
 				Check: acctests.ComposeTestCheckFunc(
-					acctests.CheckTwingateResourceExists(serviceAccount),
-					sdk.TestCheckResourceAttr(serviceAccount, attr.Name, serviceAccountName),
-					acctests.CheckTwingateResourceExists(serviceKey),
-					sdk.TestCheckResourceAttr(serviceKey, attr.IsActive, "true"),
-					sdk.TestCheckResourceAttrWith(serviceKey, attr.Token, nonEmptyValue),
+					acctests.CheckTwingateResourceExists(serviceAccount.TerraformResource()),
+					sdk.TestCheckResourceAttr(serviceAccount.TerraformResource(), attr.Name, serviceAccount.Name),
+					acctests.CheckTwingateResourceExists(serviceKey.TerraformResource()),
+					sdk.TestCheckResourceAttr(serviceKey.TerraformResource(), attr.IsActive, "true"),
+					sdk.TestCheckResourceAttrWith(serviceKey.TerraformResource(), attr.Token, nonEmptyValue),
 				),
 			},
 		},
@@ -309,9 +244,8 @@ func TestAccTwingateServiceKeyCreateWithExpiration(t *testing.T) {
 func TestAccTwingateServiceKeyReCreateAfterChangingExpirationTime(t *testing.T) {
 	t.Parallel()
 
-	serviceAccountName := test.RandomName()
-	terraformResourceName := test.TerraformRandName("test_key")
-	serviceKey := acctests.TerraformServiceKey(terraformResourceName)
+	serviceAccount := NewServiceAccount()
+	serviceKey := NewServiceAccountKey(serviceAccount.TerraformResourceID())
 
 	resourceID := new(string)
 
@@ -321,18 +255,18 @@ func TestAccTwingateServiceKeyReCreateAfterChangingExpirationTime(t *testing.T) 
 		CheckDestroy:             acctests.CheckTwingateServiceAccountDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: configServiceKeyWithExpiration(terraformResourceName, serviceAccountName, 1),
+				Config: configBuilder(serviceAccount, serviceKey.Set(attr.ExpirationTime, 1)),
 				Check: acctests.ComposeTestCheckFunc(
-					acctests.CheckTwingateResourceExists(serviceKey),
-					acctests.GetTwingateResourceID(serviceKey, &resourceID),
-					sdk.TestCheckResourceAttrWith(serviceKey, attr.Token, nonEmptyValue),
+					acctests.CheckTwingateResourceExists(serviceKey.TerraformResource()),
+					acctests.GetTwingateResourceID(serviceKey.TerraformResource(), &resourceID),
+					sdk.TestCheckResourceAttrWith(serviceKey.TerraformResource(), attr.Token, nonEmptyValue),
 				),
 			},
 			{
-				Config: configServiceKeyWithExpiration(terraformResourceName, serviceAccountName, 2),
+				Config: configBuilder(serviceAccount, serviceKey.Set(attr.ExpirationTime, 2)),
 				Check: acctests.ComposeTestCheckFunc(
-					acctests.CheckTwingateResourceExists(serviceKey),
-					sdk.TestCheckResourceAttrWith(serviceKey, attr.ID, func(value string) error {
+					acctests.CheckTwingateResourceExists(serviceKey.TerraformResource()),
+					sdk.TestCheckResourceAttrWith(serviceKey.TerraformResource(), attr.ID, func(value string) error {
 						if *resourceID == "" {
 							return errors.New("failed to fetch resource id")
 						}
@@ -352,14 +286,9 @@ func TestAccTwingateServiceKeyReCreateAfterChangingExpirationTime(t *testing.T) 
 func TestAccTwingateServiceKeyAndServiceAccountLifecycle(t *testing.T) {
 	t.Parallel()
 
-	serviceAccountName := test.RandomName()
-	serviceAccountNameV2 := test.RandomName()
-	terraformServiceAccountName := test.TerraformRandName("test_acc")
-	terraformServiceAccountNameV2 := test.TerraformRandName("test_acc_v2")
-	terraformServiceAccountKeyName := test.TerraformRandName("test_key")
-	serviceAccount := acctests.TerraformServiceAccount(terraformServiceAccountName)
-	serviceAccountV2 := acctests.TerraformServiceAccount(terraformServiceAccountNameV2)
-	serviceKey := acctests.TerraformServiceKey(terraformServiceAccountKeyName)
+	serviceAccount1 := NewServiceAccount()
+	serviceAccount2 := NewServiceAccount()
+	serviceKey := NewServiceAccountKey(serviceAccount1.TerraformResourceID())
 
 	serviceKeyResourceID := new(string)
 	serviceAccountResourceID := new(string)
@@ -370,26 +299,26 @@ func TestAccTwingateServiceKeyAndServiceAccountLifecycle(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateServiceAccountDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: configTwoServiceAccounts(terraformServiceAccountName, serviceAccountName, terraformServiceAccountNameV2, serviceAccountNameV2, terraformServiceAccountKeyName, terraformServiceAccountName),
+				Config: configBuilder(serviceKey, serviceAccount1, serviceAccount2),
 				Check: acctests.ComposeTestCheckFunc(
-					acctests.CheckTwingateResourceExists(serviceAccount),
-					sdk.TestCheckResourceAttr(serviceAccount, attr.Name, serviceAccountName),
-					acctests.CheckTwingateResourceExists(serviceKey),
-					sdk.TestCheckResourceAttrWith(serviceKey, attr.Token, nonEmptyValue),
-					acctests.GetTwingateResourceID(serviceKey, &serviceKeyResourceID),
-					acctests.GetTwingateResourceID(serviceKey, &serviceAccountResourceID),
+					acctests.CheckTwingateResourceExists(serviceAccount1.TerraformResource()),
+					sdk.TestCheckResourceAttr(serviceAccount1.TerraformResource(), attr.Name, serviceAccount1.Name),
+					acctests.CheckTwingateResourceExists(serviceKey.TerraformResource()),
+					sdk.TestCheckResourceAttrWith(serviceKey.TerraformResource(), attr.Token, nonEmptyValue),
+					acctests.GetTwingateResourceID(serviceKey.TerraformResource(), &serviceKeyResourceID),
+					acctests.GetTwingateResourceID(serviceKey.TerraformResource(), &serviceAccountResourceID),
 				),
 			},
 			{
-				Config: configTwoServiceAccounts(terraformServiceAccountName, serviceAccountName, terraformServiceAccountNameV2, serviceAccountNameV2, terraformServiceAccountKeyName, terraformServiceAccountNameV2),
+				Config: configBuilder(serviceKey.Set(attr.ServiceAccountID, serviceAccount2.TerraformResourceID()), serviceAccount1, serviceAccount2),
 				Check: acctests.ComposeTestCheckFunc(
-					acctests.CheckTwingateResourceExists(serviceAccountV2),
-					sdk.TestCheckResourceAttr(serviceAccountV2, attr.Name, serviceAccountNameV2),
-					acctests.CheckTwingateResourceExists(serviceKey),
-					sdk.TestCheckResourceAttrWith(serviceKey, attr.Token, nonEmptyValue),
+					acctests.CheckTwingateResourceExists(serviceAccount2.TerraformResource()),
+					sdk.TestCheckResourceAttr(serviceAccount2.TerraformResource(), attr.Name, serviceAccount2.Name),
+					acctests.CheckTwingateResourceExists(serviceKey.TerraformResource()),
+					sdk.TestCheckResourceAttrWith(serviceKey.TerraformResource(), attr.Token, nonEmptyValue),
 
 					// test resources were re-created
-					sdk.TestCheckResourceAttrWith(serviceKey, attr.ID, func(value string) error {
+					sdk.TestCheckResourceAttrWith(serviceKey.TerraformResource(), attr.ID, func(value string) error {
 						if *serviceKeyResourceID == "" {
 							return errors.New("failed to fetch service_key resource id")
 						}
@@ -401,7 +330,7 @@ func TestAccTwingateServiceKeyAndServiceAccountLifecycle(t *testing.T) {
 						return nil
 					}),
 
-					sdk.TestCheckResourceAttrWith(serviceAccountV2, attr.ID, func(value string) error {
+					sdk.TestCheckResourceAttrWith(serviceAccount2.TerraformResource(), attr.ID, func(value string) error {
 						if *serviceAccountResourceID == "" {
 							return errors.New("failed to fetch service_account resource id")
 						}
@@ -416,28 +345,4 @@ func TestAccTwingateServiceKeyAndServiceAccountLifecycle(t *testing.T) {
 			},
 		},
 	})
-}
-
-func configTwoServiceAccounts(terraformServiceAccountName, serviceAccountName, terraformServiceAccountNameV2, serviceAccountNameV2, terraformServiceAccountKeyName, serviceAccount string) string {
-	return acctests.Nprintf(`
-	resource "twingate_service_account" "${service_account_resource_1}" {
-	  name = "${name_1}"
-	}
-
-	resource "twingate_service_account" "${service_account_resource_2}" {
-	  name = "${name_2}"
-	}
-
-	resource "twingate_service_account_key" "${service_account_key_resource}" {
-	  service_account_id = twingate_service_account.${service_account_resource}.id
-	}
-	`,
-		map[string]any{
-			"service_account_resource_1":   terraformServiceAccountName,
-			"name_1":                       serviceAccountName,
-			"service_account_resource_2":   terraformServiceAccountNameV2,
-			"name_2":                       serviceAccountNameV2,
-			"service_account_key_resource": terraformServiceAccountKeyName,
-			"service_account_resource":     serviceAccount,
-		})
 }

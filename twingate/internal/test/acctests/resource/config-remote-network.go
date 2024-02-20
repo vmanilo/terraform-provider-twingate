@@ -16,8 +16,8 @@ type RemoteNetwork struct {
 
 func NewRemoteNetwork() *RemoteNetwork {
 	return &RemoteNetwork{
-		ResourceName: test.RandomNetworkName(),
-		Name:         test.RandomName(),
+		ResourceName: test.RandomResourceName(),
+		Name:         test.RandomNetworkName(),
 	}
 }
 
@@ -33,6 +33,10 @@ func (r *RemoteNetwork) optionalAttributes() string {
 
 func (r *RemoteNetwork) TerraformResource() string {
 	return acctests.TerraformRemoteNetwork(r.ResourceName)
+}
+
+func (r *RemoteNetwork) TerraformResourceID() string {
+	return r.TerraformResource() + ".id"
 }
 
 func (r *RemoteNetwork) String() string {

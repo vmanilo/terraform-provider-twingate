@@ -26,8 +26,8 @@ func configServiceAccount(resourceName, serviceAccountName string) string {
 func TestAccTwingateServiceAccountCreateUpdate(t *testing.T) {
 	t.Parallel()
 
-	resourceName := test.RandomServiceAccountName()
-	theResource := acctests.TerraformServiceAccount(resourceName)
+	serviceAccount := NewServiceAccount()
+	theResource := serviceAccount.TerraformResource()
 	name1 := test.RandomName()
 	name2 := test.RandomName()
 
@@ -37,14 +37,14 @@ func TestAccTwingateServiceAccountCreateUpdate(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateServiceAccountDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: configServiceAccount(resourceName, name1),
+				Config: configBuilder(serviceAccount.Set(attr.Name, name1)),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					sdk.TestCheckResourceAttr(theResource, attr.Name, name1),
 				),
 			},
 			{
-				Config: configServiceAccount(resourceName, name2),
+				Config: configBuilder(serviceAccount.Set(attr.Name, name2)),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					sdk.TestCheckResourceAttr(theResource, attr.Name, name2),
@@ -57,9 +57,8 @@ func TestAccTwingateServiceAccountCreateUpdate(t *testing.T) {
 func TestAccTwingateServiceAccountDelete(t *testing.T) {
 	t.Parallel()
 
-	resourceName := test.RandomServiceAccountName()
-	theResource := acctests.TerraformServiceAccount(resourceName)
-	name := test.RandomName()
+	serviceAccount := NewServiceAccount()
+	theResource := serviceAccount.TerraformResource()
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -67,11 +66,11 @@ func TestAccTwingateServiceAccountDelete(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateServiceAccountDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config:  configServiceAccount(resourceName, name),
+				Config:  configBuilder(serviceAccount),
 				Destroy: true,
 			},
 			{
-				Config: configServiceAccount(resourceName, name),
+				Config: configBuilder(serviceAccount),
 				ConfigPlanChecks: sdk.ConfigPlanChecks{
 					PreApply: []plancheck.PlanCheck{
 						plancheck.ExpectResourceAction(theResource, plancheck.ResourceActionCreate),
@@ -85,9 +84,8 @@ func TestAccTwingateServiceAccountDelete(t *testing.T) {
 func TestAccTwingateServiceAccountReCreateAfterDeletion(t *testing.T) {
 	t.Parallel()
 
-	resourceName := test.RandomServiceAccountName()
-	theResource := acctests.TerraformServiceAccount(resourceName)
-	name := test.RandomName()
+	serviceAccount := NewServiceAccount()
+	theResource := serviceAccount.TerraformResource()
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -95,7 +93,7 @@ func TestAccTwingateServiceAccountReCreateAfterDeletion(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateServiceAccountDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: configServiceAccount(resourceName, name),
+				Config: configBuilder(serviceAccount),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					acctests.DeleteTwingateResource(theResource, resource.TwingateServiceAccount),
@@ -104,7 +102,7 @@ func TestAccTwingateServiceAccountReCreateAfterDeletion(t *testing.T) {
 				ExpectNonEmptyPlan: true,
 			},
 			{
-				Config: configServiceAccount(resourceName, name),
+				Config: configBuilder(serviceAccount),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 				),

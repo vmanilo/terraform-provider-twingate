@@ -16,8 +16,9 @@ import (
 func TestAccRemoteConnectorCreate(t *testing.T) {
 	t.Parallel()
 
-	connectorName := test.RandomConnectorName()
-	theResource := acctests.TerraformConnector(connectorName)
+	network := NewRemoteNetwork()
+	connector := NewConnector().Set(attr.RemoteNetworkID, network.TerraformResourceID())
+	theResource := connector.TerraformResource()
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -25,9 +26,9 @@ func TestAccRemoteConnectorCreate(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateConnectorAndRemoteNetworkDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: configConnector(connectorName, connectorName, test.RandomName()),
+				Config: configBuilder(network, connector),
 				Check: acctests.ComposeTestCheckFunc(
-					checkTwingateConnectorSetWithRemoteNetwork(theResource, acctests.TerraformRemoteNetwork(connectorName)),
+					checkTwingateConnectorSetWithRemoteNetwork(theResource, network.TerraformResource()),
 					sdk.TestCheckResourceAttrSet(theResource, attr.Name),
 				),
 			},
@@ -38,8 +39,9 @@ func TestAccRemoteConnectorCreate(t *testing.T) {
 func TestAccRemoteConnectorWithCustomName(t *testing.T) {
 	t.Parallel()
 
-	connectorName := test.RandomConnectorName()
-	theResource := acctests.TerraformConnector(connectorName)
+	network := NewRemoteNetwork()
+	connector := NewConnector().Set(attr.Name, test.RandomConnectorName(), attr.RemoteNetworkID, network.TerraformResourceID())
+	theResource := connector.TerraformResource()
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -47,10 +49,10 @@ func TestAccRemoteConnectorWithCustomName(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateConnectorAndRemoteNetworkDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: configConnectorWithName(connectorName, test.RandomName(), connectorName),
+				Config: configBuilder(network, connector),
 				Check: acctests.ComposeTestCheckFunc(
-					checkTwingateConnectorSetWithRemoteNetwork(theResource, acctests.TerraformRemoteNetwork(connectorName)),
-					sdk.TestCheckResourceAttr(theResource, attr.Name, connectorName),
+					checkTwingateConnectorSetWithRemoteNetwork(theResource, network.TerraformResource()),
+					sdk.TestCheckResourceAttr(theResource, attr.Name, *connector.Name),
 				),
 			},
 		},
@@ -60,8 +62,9 @@ func TestAccRemoteConnectorWithCustomName(t *testing.T) {
 func TestAccRemoteConnectorImport(t *testing.T) {
 	t.Parallel()
 
-	connectorName := test.RandomConnectorName()
-	theResource := acctests.TerraformConnector(connectorName)
+	network := NewRemoteNetwork()
+	connector := NewConnector().Set(attr.Name, test.RandomConnectorName(), attr.RemoteNetworkID, network.TerraformResourceID())
+	theResource := connector.TerraformResource()
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -69,10 +72,10 @@ func TestAccRemoteConnectorImport(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateConnectorAndRemoteNetworkDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: configConnectorWithName(connectorName, test.RandomName(), connectorName),
+				Config: configBuilder(network, connector),
 				Check: acctests.ComposeTestCheckFunc(
-					checkTwingateConnectorSetWithRemoteNetwork(theResource, acctests.TerraformRemoteNetwork(connectorName)),
-					sdk.TestCheckResourceAttr(theResource, attr.Name, connectorName),
+					checkTwingateConnectorSetWithRemoteNetwork(theResource, network.TerraformResource()),
+					sdk.TestCheckResourceAttr(theResource, attr.Name, *connector.Name),
 				),
 			},
 			{
@@ -80,7 +83,7 @@ func TestAccRemoteConnectorImport(t *testing.T) {
 				ImportStateVerify: true,
 				ResourceName:      theResource,
 				ImportStateCheck: acctests.CheckImportState(map[string]string{
-					attr.Name: connectorName,
+					attr.Name: *connector.Name,
 				}),
 			},
 		},
@@ -90,12 +93,10 @@ func TestAccRemoteConnectorImport(t *testing.T) {
 func TestAccRemoteConnectorNotAllowedToChangeRemoteNetworkId(t *testing.T) {
 	t.Parallel()
 
-	terraformConnectorName := test.RandomConnectorName()
-	terraformRemoteNetworkName1 := test.RandomNetworkName()
-	terraformRemoteNetworkName2 := test.RandomNetworkName()
-	theResource := acctests.TerraformConnector(terraformConnectorName)
-	remoteNetworkName1 := test.RandomName()
-	remoteNetworkName2 := test.RandomName()
+	network1 := NewRemoteNetwork()
+	network2 := NewRemoteNetwork()
+	connector := NewConnector()
+	theResource := connector.TerraformResource()
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -103,13 +104,13 @@ func TestAccRemoteConnectorNotAllowedToChangeRemoteNetworkId(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateConnectorAndRemoteNetworkDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: configConnector(terraformRemoteNetworkName1, terraformConnectorName, remoteNetworkName1),
+				Config: configBuilder(network1, network2, connector.Set(attr.RemoteNetworkID, network1.TerraformResourceID())),
 				Check: acctests.ComposeTestCheckFunc(
-					checkTwingateConnectorSetWithRemoteNetwork(theResource, acctests.TerraformRemoteNetwork(terraformRemoteNetworkName1)),
+					checkTwingateConnectorSetWithRemoteNetwork(theResource, network1.TerraformResource()),
 				),
 			},
 			{
-				Config:      configConnector(terraformRemoteNetworkName2, terraformConnectorName, remoteNetworkName2),
+				Config:      configBuilder(network1, network2, connector.Set(attr.RemoteNetworkID, network2.TerraformResourceID())),
 				ExpectError: regexp.MustCompile(resource.ErrNotAllowChangeRemoteNetworkID.Error()),
 			},
 		},
@@ -119,9 +120,9 @@ func TestAccRemoteConnectorNotAllowedToChangeRemoteNetworkId(t *testing.T) {
 func TestAccTwingateConnectorReCreateAfterDeletion(t *testing.T) {
 	t.Parallel()
 
-	connectorName := test.RandomConnectorName()
-	theResource := acctests.TerraformConnector(connectorName)
-	networkName := test.RandomName()
+	network := NewRemoteNetwork()
+	connector := NewConnector().Set(attr.RemoteNetworkID, network.TerraformResourceID())
+	theResource := connector.TerraformResource()
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -129,17 +130,17 @@ func TestAccTwingateConnectorReCreateAfterDeletion(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateConnectorAndRemoteNetworkDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: configConnector(connectorName, connectorName, networkName),
+				Config: configBuilder(network, connector),
 				Check: acctests.ComposeTestCheckFunc(
-					checkTwingateConnectorSetWithRemoteNetwork(theResource, acctests.TerraformRemoteNetwork(connectorName)),
+					checkTwingateConnectorSetWithRemoteNetwork(theResource, network.TerraformResource()),
 					acctests.DeleteTwingateResource(theResource, resource.TwingateConnector),
 				),
 				ExpectNonEmptyPlan: true,
 			},
 			{
-				Config: configConnector(connectorName, connectorName, networkName),
+				Config: configBuilder(network, connector),
 				Check: acctests.ComposeTestCheckFunc(
-					checkTwingateConnectorSetWithRemoteNetwork(theResource, acctests.TerraformRemoteNetwork(connectorName)),
+					checkTwingateConnectorSetWithRemoteNetwork(theResource, network.TerraformResource()),
 				),
 			},
 		},
@@ -206,9 +207,10 @@ func TestAccRemoteConnectorUpdateName(t *testing.T) {
 	t.Parallel()
 
 	connectorName := test.RandomConnectorName()
-	theResource := acctests.TerraformConnector(connectorName)
-	networkName := test.RandomName()
-	connectorNewName := test.RandomConnectorName()
+
+	network := NewRemoteNetwork()
+	connector := NewConnector().Set(attr.RemoteNetworkID, network.TerraformResourceID())
+	theResource := connector.TerraformResource()
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -216,16 +218,16 @@ func TestAccRemoteConnectorUpdateName(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateConnectorAndRemoteNetworkDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: configConnector(connectorName, connectorName, networkName),
+				Config: configBuilder(network, connector),
 				Check: acctests.ComposeTestCheckFunc(
-					checkTwingateConnectorSetWithRemoteNetwork(theResource, acctests.TerraformRemoteNetwork(connectorName)),
+					checkTwingateConnectorSetWithRemoteNetwork(theResource, network.TerraformResource()),
 					sdk.TestCheckResourceAttrSet(theResource, attr.Name),
 				),
 			},
 			{
-				Config: configConnectorWithName(connectorName, networkName, connectorNewName),
+				Config: configBuilder(network, connector.Set(attr.Name, connectorName)),
 				Check: acctests.ComposeTestCheckFunc(
-					sdk.TestCheckResourceAttr(theResource, attr.Name, connectorNewName),
+					sdk.TestCheckResourceAttr(theResource, attr.Name, connectorName),
 				),
 			},
 		},
@@ -235,9 +237,9 @@ func TestAccRemoteConnectorUpdateName(t *testing.T) {
 func TestAccRemoteConnectorCreateWithNotificationStatus(t *testing.T) {
 	t.Parallel()
 
-	connectorName := test.RandomConnectorName()
-	theResource := acctests.TerraformConnector(connectorName)
-	networkName := test.RandomName()
+	network := NewRemoteNetwork()
+	connector := NewConnector().Set(attr.RemoteNetworkID, network.TerraformResourceID())
+	theResource := connector.TerraformResource()
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -245,22 +247,22 @@ func TestAccRemoteConnectorCreateWithNotificationStatus(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateConnectorAndRemoteNetworkDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: configConnector(connectorName, connectorName, networkName),
+				Config: configBuilder(network, connector),
 				Check: acctests.ComposeTestCheckFunc(
-					checkTwingateConnectorSetWithRemoteNetwork(theResource, acctests.TerraformRemoteNetwork(connectorName)),
+					checkTwingateConnectorSetWithRemoteNetwork(theResource, network.TerraformResource()),
 					sdk.TestCheckResourceAttrSet(theResource, attr.Name),
 				),
 			},
 			{
 				// expecting no changes, as by default notifications enabled
 				PlanOnly: true,
-				Config:   configConnectorWithNotificationStatus(connectorName, connectorName, networkName, true),
+				Config:   configBuilder(network, connector.Set(attr.StatusUpdatesEnabled, true)),
 				Check: acctests.ComposeTestCheckFunc(
 					sdk.TestCheckResourceAttr(theResource, attr.StatusUpdatesEnabled, "true"),
 				),
 			},
 			{
-				Config: configConnectorWithNotificationStatus(connectorName, connectorName, networkName, false),
+				Config: configBuilder(network, connector.Set(attr.StatusUpdatesEnabled, false)),
 				Check: acctests.ComposeTestCheckFunc(
 					sdk.TestCheckResourceAttr(theResource, attr.StatusUpdatesEnabled, "false"),
 				),
@@ -268,7 +270,7 @@ func TestAccRemoteConnectorCreateWithNotificationStatus(t *testing.T) {
 			{
 				// expecting no changes, when user removes `status_updates_enabled` field from terraform
 				PlanOnly: true,
-				Config:   configConnector(connectorName, connectorName, networkName),
+				Config:   configBuilder(network, connector.Set(attr.StatusUpdatesEnabled, nil)),
 				Check: acctests.ComposeTestCheckFunc(
 					sdk.TestCheckResourceAttr(theResource, attr.StatusUpdatesEnabled, "false"),
 				),
@@ -277,28 +279,12 @@ func TestAccRemoteConnectorCreateWithNotificationStatus(t *testing.T) {
 	})
 }
 
-func configConnectorWithNotificationStatus(terraformRemoteNetworkName, terraformConnectorName, remoteNetworkName string, notificationStatus bool) string {
-	return acctests.Nprintf(`
-	${remote_network}
-
-	resource "twingate_connector" "${connector_resource}" {
-	  remote_network_id = twingate_remote_network.${remote_network_resource}.id
-	  status_updates_enabled = ${notification_status}
-	}
-	`,
-		map[string]any{
-			"remote_network":          configRemoteNetwork(terraformRemoteNetworkName, remoteNetworkName),
-			"connector_resource":      terraformConnectorName,
-			"remote_network_resource": terraformRemoteNetworkName,
-			"notification_status":     notificationStatus,
-		})
-
-}
-
 func TestAccRemoteConnectorCreateWithNotificationStatusFalse(t *testing.T) {
-	const terraformResourceName = "test_c8"
-	theResource := acctests.TerraformConnector(terraformResourceName)
-	remoteNetworkName := test.RandomName()
+	t.Parallel()
+
+	network := NewRemoteNetwork()
+	connector := NewConnector().Set(attr.RemoteNetworkID, network.TerraformResourceID())
+	theResource := connector.TerraformResource()
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -306,30 +292,11 @@ func TestAccRemoteConnectorCreateWithNotificationStatusFalse(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateConnectorAndRemoteNetworkDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: terraformResourceTwingateConnectorWithNotificationStatus(terraformResourceName, terraformResourceName, remoteNetworkName, false),
+				Config: configBuilder(network, connector.Set(attr.StatusUpdatesEnabled, false)),
 				Check: acctests.ComposeTestCheckFunc(
 					sdk.TestCheckResourceAttr(theResource, attr.StatusUpdatesEnabled, "false"),
 				),
 			},
 		},
 	})
-}
-
-func terraformResourceTwingateConnectorWithNotificationStatus(terraformRemoteNetworkName, terraformConnectorName, remoteNetworkName string, notificationStatus bool) string {
-	return fmt.Sprintf(`
-	%s
-
-	resource "twingate_connector" "%s" {
-	  remote_network_id = twingate_remote_network.%s.id
-	  status_updates_enabled = %v
-	}
-	`, terraformResourceRemoteNetwork(terraformRemoteNetworkName, remoteNetworkName), terraformConnectorName, terraformRemoteNetworkName, notificationStatus)
-}
-
-func terraformResourceRemoteNetwork(terraformResourceName, name string) string {
-	return fmt.Sprintf(`
-	resource "twingate_remote_network" "%s" {
-	  name = "%s"
-	}
-	`, terraformResourceName, name)
 }

@@ -21,8 +21,8 @@ type Group struct {
 
 func NewGroup() *Group {
 	return &Group{
-		ResourceName: test.RandomGroupName(),
-		Name:         test.RandomName(),
+		ResourceName: test.RandomResourceName(),
+		Name:         test.RandomGroupName(),
 	}
 }
 

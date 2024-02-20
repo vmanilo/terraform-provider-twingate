@@ -20,6 +20,21 @@ func collectResourceIDs[T TerraformResource](resources ...T) []string {
 	return ids
 }
 
+func optionalInt(val any) *int {
+	if val == nil {
+		return nil
+	}
+
+	switch t := val.(type) {
+	case int:
+		return &t
+	case *int:
+		return t
+	default:
+		return nil
+	}
+}
+
 func optionalString(val any) *string {
 	if val == nil {
 		return nil
