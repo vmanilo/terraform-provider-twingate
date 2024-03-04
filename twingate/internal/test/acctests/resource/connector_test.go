@@ -17,7 +17,7 @@ func TestAccRemoteConnectorCreate(t *testing.T) {
 	t.Parallel()
 
 	network := NewRemoteNetwork()
-	connector := NewConnector().Set(attr.RemoteNetworkID, network.TerraformResourceID())
+	connector := NewConnector(network.TerraformResourceID())
 	theResource := connector.TerraformResource()
 
 	sdk.Test(t, sdk.TestCase{
@@ -40,7 +40,7 @@ func TestAccRemoteConnectorWithCustomName(t *testing.T) {
 	t.Parallel()
 
 	network := NewRemoteNetwork()
-	connector := NewConnector().Set(attr.Name, test.RandomConnectorName(), attr.RemoteNetworkID, network.TerraformResourceID())
+	connector := NewConnector(network.TerraformResourceID()).Set(attr.Name, test.RandomConnectorName())
 	theResource := connector.TerraformResource()
 
 	sdk.Test(t, sdk.TestCase{
@@ -63,7 +63,7 @@ func TestAccRemoteConnectorImport(t *testing.T) {
 	t.Parallel()
 
 	network := NewRemoteNetwork()
-	connector := NewConnector().Set(attr.Name, test.RandomConnectorName(), attr.RemoteNetworkID, network.TerraformResourceID())
+	connector := NewConnector(network.TerraformResourceID()).Set(attr.Name, test.RandomConnectorName())
 	theResource := connector.TerraformResource()
 
 	sdk.Test(t, sdk.TestCase{
@@ -95,7 +95,7 @@ func TestAccRemoteConnectorNotAllowedToChangeRemoteNetworkId(t *testing.T) {
 
 	network1 := NewRemoteNetwork()
 	network2 := NewRemoteNetwork()
-	connector := NewConnector()
+	connector := NewConnector(network1.TerraformResourceID())
 	theResource := connector.TerraformResource()
 
 	sdk.Test(t, sdk.TestCase{
@@ -104,7 +104,7 @@ func TestAccRemoteConnectorNotAllowedToChangeRemoteNetworkId(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateConnectorAndRemoteNetworkDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: configBuilder(network1, network2, connector.Set(attr.RemoteNetworkID, network1.TerraformResourceID())),
+				Config: configBuilder(network1, network2, connector),
 				Check: acctests.ComposeTestCheckFunc(
 					checkTwingateConnectorSetWithRemoteNetwork(theResource, network1.TerraformResource()),
 				),
@@ -121,7 +121,7 @@ func TestAccTwingateConnectorReCreateAfterDeletion(t *testing.T) {
 	t.Parallel()
 
 	network := NewRemoteNetwork()
-	connector := NewConnector().Set(attr.RemoteNetworkID, network.TerraformResourceID())
+	connector := NewConnector(network.TerraformResourceID())
 	theResource := connector.TerraformResource()
 
 	sdk.Test(t, sdk.TestCase{
@@ -162,23 +162,6 @@ func configConnector(networkTR, connectorTR, networkName string) string {
 		})
 }
 
-func configConnectorWithName(terraformResource, networkName, connectorName string) string {
-	return acctests.Nprintf(`
-	${remote_network}
-
-	resource "twingate_connector" "${connector_resource}" {
-	  remote_network_id = twingate_remote_network.${remote_network_resource}.id
-	  name  = "${connector_name}"
-	}
-	`,
-		map[string]any{
-			"remote_network":          configRemoteNetwork(terraformResource, networkName),
-			"connector_resource":      terraformResource,
-			"remote_network_resource": terraformResource,
-			"connector_name":          connectorName,
-		})
-}
-
 func checkTwingateConnectorSetWithRemoteNetwork(connectorResource, remoteNetworkResource string) sdk.TestCheckFunc {
 	return func(s *terraform.State) error {
 		connector, ok := s.RootModule().Resources[connectorResource]
@@ -209,7 +192,7 @@ func TestAccRemoteConnectorUpdateName(t *testing.T) {
 	connectorName := test.RandomConnectorName()
 
 	network := NewRemoteNetwork()
-	connector := NewConnector().Set(attr.RemoteNetworkID, network.TerraformResourceID())
+	connector := NewConnector(network.TerraformResourceID())
 	theResource := connector.TerraformResource()
 
 	sdk.Test(t, sdk.TestCase{
@@ -238,7 +221,7 @@ func TestAccRemoteConnectorCreateWithNotificationStatus(t *testing.T) {
 	t.Parallel()
 
 	network := NewRemoteNetwork()
-	connector := NewConnector().Set(attr.RemoteNetworkID, network.TerraformResourceID())
+	connector := NewConnector(network.TerraformResourceID())
 	theResource := connector.TerraformResource()
 
 	sdk.Test(t, sdk.TestCase{
@@ -283,7 +266,7 @@ func TestAccRemoteConnectorCreateWithNotificationStatusFalse(t *testing.T) {
 	t.Parallel()
 
 	network := NewRemoteNetwork()
-	connector := NewConnector().Set(attr.RemoteNetworkID, network.TerraformResourceID())
+	connector := NewConnector(network.TerraformResourceID())
 	theResource := connector.TerraformResource()
 
 	sdk.Test(t, sdk.TestCase{

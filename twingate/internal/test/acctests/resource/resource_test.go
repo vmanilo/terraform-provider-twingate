@@ -30,10 +30,9 @@ var (
 func TestAccTwingateResourceCreate(t *testing.T) {
 	t.Parallel()
 
-	resourceName := test.RandomResourceName()
-	theResource := acctests.TerraformResource(resourceName)
-	remoteNetworkName := test.RandomName()
-	name := test.RandomResourceName()
+	remoteNetwork := NewRemoteNetwork()
+	resource := NewResource(remoteNetwork.TerraformResourceID())
+	theResource := resource.TerraformResource()
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -41,13 +40,13 @@ func TestAccTwingateResourceCreate(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateResourceDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: configResourceBasic(resourceName, remoteNetworkName, name),
+				Config: configBuilder(resource, remoteNetwork),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					sdk.TestCheckNoResourceAttr(theResource, accessGroupIdsLen),
-					sdk.TestCheckResourceAttr(acctests.TerraformRemoteNetwork(resourceName), attr.Name, remoteNetworkName),
-					sdk.TestCheckResourceAttr(theResource, attr.Name, name),
-					sdk.TestCheckResourceAttr(theResource, attr.Address, "acc-test.com"),
+					sdk.TestCheckResourceAttr(remoteNetwork.TerraformResource(), attr.Name, remoteNetwork.Name),
+					sdk.TestCheckResourceAttr(theResource, attr.Name, resource.Name),
+					sdk.TestCheckResourceAttr(theResource, attr.Address, resource.Address),
 				),
 			},
 		},
@@ -57,10 +56,16 @@ func TestAccTwingateResourceCreate(t *testing.T) {
 func TestAccTwingateResourceUpdateProtocols(t *testing.T) {
 	t.Parallel()
 
-	resourceName := test.RandomResourceName()
-	theResource := acctests.TerraformResource(resourceName)
-	remoteNetworkName := test.RandomName()
-	name := test.RandomResourceName()
+	remoteNetwork := NewRemoteNetwork()
+	resource := NewResource(remoteNetwork.TerraformResourceID())
+	theResource := resource.TerraformResource()
+
+	var nullProtocols *Protocols
+	protocols := &Protocols{
+		AllowIcmp: true,
+		TCP:       Protocol{Policy: model.PolicyDenyAll},
+		UDP:       Protocol{Policy: model.PolicyDenyAll},
+	}
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -68,19 +73,19 @@ func TestAccTwingateResourceUpdateProtocols(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateResourceDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: configResourceBasic(resourceName, remoteNetworkName, name),
+				Config: configBuilder(resource, remoteNetwork),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 				),
 			},
 			{
-				Config: configResourceWithSimpleProtocols(resourceName, remoteNetworkName, name),
+				Config: configBuilder(resource.Set(attr.Protocols, protocols), remoteNetwork),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 				),
 			},
 			{
-				Config: configResourceBasic(resourceName, remoteNetworkName, name),
+				Config: configBuilder(resource.Set(attr.Protocols, nullProtocols), remoteNetwork),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 				),
@@ -108,44 +113,27 @@ func configResourceBasic(terraformResource, networkName, name string) string {
 		})
 }
 
-func configResourceWithSimpleProtocols(terraformResource, networkName, name string) string {
-	return acctests.Nprintf(`
-	resource "twingate_remote_network" "${network_resource}" {
-	  name = "${network_name}"
-	}
-	resource "twingate_resource" "${resource_resource}" {
-	  name = "${resource_name}"
-	  address = "acc-test.com"
-	  remote_network_id = twingate_remote_network.${network_resource}.id
-
-	  protocols = {
-        allow_icmp = true
-        tcp = {
-            policy = "DENY_ALL"
-        }
-        udp = {
-            policy = "DENY_ALL"
-        }
-      }
-	}
-	`,
-		map[string]any{
-			"network_resource":  terraformResource,
-			"network_name":      networkName,
-			"resource_resource": terraformResource,
-			"resource_name":     name,
-		})
-}
-
 func TestAccTwingateResourceCreateWithProtocolsAndGroups(t *testing.T) {
 	t.Parallel()
 
-	terraformResource := test.RandomResourceName()
-	theResource := acctests.TerraformResource(terraformResource)
-	networkName := test.RandomName()
-	group1 := test.RandomGroupName()
-	group2 := test.RandomGroupName()
-	name := test.RandomResourceName()
+	group1 := NewGroup()
+	group2 := NewGroup()
+
+	remoteNetwork := NewRemoteNetwork()
+	protocols := &Protocols{
+		AllowIcmp: true,
+		TCP: Protocol{
+			Ports:  []string{"80", "82-83"},
+			Policy: model.PolicyRestricted,
+		},
+		UDP: Protocol{Policy: model.PolicyAllowAll},
+	}
+	resource := NewResource(remoteNetwork.TerraformResourceID()).Set(
+		attr.Protocols, protocols,
+		attr.Access, []Access{{GroupIDs: collectResourceIDs(group1, group2)}},
+	)
+
+	theResource := resource.TerraformResource()
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -153,10 +141,10 @@ func TestAccTwingateResourceCreateWithProtocolsAndGroups(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateResourceDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: configResourceWithProtocolsAndGroups(terraformResource, networkName, group1, group2, name),
+				Config: configBuilder(resource, remoteNetwork, group1, group2),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
-					sdk.TestCheckResourceAttr(theResource, attr.Address, "new-acc-test.com"),
+					sdk.TestCheckResourceAttr(theResource, attr.Address, resource.Address),
 					sdk.TestCheckResourceAttr(theResource, accessGroupIdsLen, "2"),
 					sdk.TestCheckResourceAttr(theResource, tcpPolicy, model.PolicyRestricted),
 					sdk.TestCheckResourceAttr(theResource, firstTCPPort, "80"),
@@ -166,61 +154,26 @@ func TestAccTwingateResourceCreateWithProtocolsAndGroups(t *testing.T) {
 	})
 }
 
-func configResourceWithProtocolsAndGroups(terraformResource, networkName, groupName1, groupName2, resourceName string) string {
-	return acctests.Nprintf(`
-	resource "twingate_remote_network" "${network_resource}" {
-	  name = "${network_name}"
-	}
-
-    resource "twingate_group" "g21" {
-      name = "${group_1}"
-    }
-
-    resource "twingate_group" "g22" {
-      name = "${group_2}"
-    }
-
-	resource "twingate_resource" "${resource_resource}" {
-	  name = "${resource_name}"
-	  address = "new-acc-test.com"
-	  remote_network_id = twingate_remote_network.${network_resource}.id
-
-      protocols = {
-		allow_icmp = true
-        tcp = {
-			policy = "${tcp_policy}"
-            ports = ["80", "82-83"]
-        }
-		udp = {
- 			policy = "${udp_policy}"
-		}
-      }
-
-      access {
-		group_ids = [twingate_group.g21.id, twingate_group.g22.id]
-      }
-	}
-	`,
-		map[string]any{
-			"network_resource":  terraformResource,
-			"network_name":      networkName,
-			"group_1":           groupName1,
-			"group_2":           groupName2,
-			"resource_resource": terraformResource,
-			"resource_name":     resourceName,
-			"tcp_policy":        model.PolicyRestricted,
-			"udp_policy":        model.PolicyAllowAll,
-		})
-}
-
 func TestAccTwingateResourceFullCreationFlow(t *testing.T) {
 	t.Parallel()
 
-	terraformResource := test.RandomResourceName()
-	theResource := acctests.TerraformResource(terraformResource)
-	networkName := test.RandomName()
-	groupName := test.RandomGroupName()
-	name := test.RandomResourceName()
+	group := NewGroup()
+	network := NewRemoteNetwork()
+	protocols := &Protocols{
+		AllowIcmp: true,
+		TCP: Protocol{
+			Ports:  []string{"80"},
+			Policy: model.PolicyRestricted,
+		},
+		UDP: Protocol{Policy: model.PolicyAllowAll},
+	}
+	resource := NewResource(network.TerraformResourceID()).Set(
+		attr.Protocols, protocols,
+		attr.Access, []Access{{GroupIDs: collectResourceIDs(group)}},
+	)
+
+	connector := NewConnector(network.TerraformResourceID())
+	connectorToken := NewConnectorToken(connector.TerraformResourceID())
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -228,127 +181,49 @@ func TestAccTwingateResourceFullCreationFlow(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateResourceDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: configCompleteResource(terraformResource, networkName, groupName, name),
+				Config: configBuilder(resource, network, group, connector, connectorToken),
 				Check: acctests.ComposeTestCheckFunc(
-					sdk.TestCheckResourceAttr(acctests.TerraformRemoteNetwork(terraformResource), attr.Name, networkName),
-					sdk.TestCheckResourceAttr(theResource, attr.Name, name),
-					sdk.TestMatchResourceAttr(acctests.TerraformConnectorTokens(terraformResource), attr.AccessToken, regexp.MustCompile(".+")),
+					sdk.TestCheckResourceAttr(network.TerraformResource(), attr.Name, network.Name),
+					sdk.TestCheckResourceAttr(resource.TerraformResource(), attr.Name, resource.Name),
+					sdk.TestMatchResourceAttr(connectorToken.TerraformResource(), attr.AccessToken, regexp.MustCompile(".+")),
 				),
 			},
 		},
 	})
 }
 
-func configCompleteResource(terraformResource, networkName, groupName, resourceName string) string {
-	return acctests.Nprintf(`
-    resource "twingate_remote_network" "${network_resource}" {
-      name = "${network_name}"
-    }
-	
-    resource "twingate_connector" "${connector_resource}" {
-      remote_network_id = twingate_remote_network.${network_resource}.id
-    }
-
-    resource "twingate_connector_tokens" "${connector_tokens_resource}" {
-      connector_id = twingate_connector.${connector_resource}.id
-    }
-
-    resource "twingate_connector" "${connector_resource}-2" {
-      remote_network_id = twingate_remote_network.${network_resource}.id
-    }
-	
-    resource "twingate_connector_tokens" "${connector_tokens_resource}-2" {
-      connector_id = twingate_connector.${connector_resource}-2.id
-    }
-
-    resource "twingate_group" "${group_resource}" {
-      name = "${group_name}"
-    }
-
-    resource "twingate_resource" "${resource_resource}" {
-      name = "${resource_name}"
-      address = "acc-test.com"
-      remote_network_id = twingate_remote_network.${network_resource}.id
-
-      protocols = {
-        allow_icmp = true
-        tcp = {
-            policy = "${tcp_policy}"
-            ports = ["3306"]
-        }
-        udp = {
-            policy = "${udp_policy}"
-        }
-      }
-
-      access {
-        group_ids = [twingate_group.${group_resource}.id]
-      }
-    }
-    `,
-		map[string]any{
-			"network_resource":          terraformResource,
-			"network_name":              networkName,
-			"connector_resource":        terraformResource,
-			"connector_tokens_resource": terraformResource,
-			"group_resource":            terraformResource,
-			"group_name":                groupName,
-			"resource_resource":         terraformResource,
-			"resource_name":             resourceName,
-			"tcp_policy":                model.PolicyRestricted,
-			"udp_policy":                model.PolicyAllowAll,
-		})
-}
-
 func TestAccTwingateResourceWithInvalidGroupId(t *testing.T) {
 	t.Parallel()
 
-	terraformResource := test.RandomResourceName()
-	networkName := test.RandomResourceName()
-	name := test.RandomResourceName()
+	network := NewRemoteNetwork()
+	resource := NewResource(network.TerraformResourceID()).Set(
+		attr.Access, []Access{{GroupIDs: []string{`"foo"`, `"bar"`}}},
+	)
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
 		PreCheck:                 func() { acctests.PreCheck(t) },
 		Steps: []sdk.TestStep{
 			{
-				Config:      configResourceWithInvalidGroupId(terraformResource, networkName, name),
+				Config:      configBuilder(resource, network),
 				ExpectError: regexp.MustCompile("failed to create resource: Field 'groupIds' Unable to parse global ID"),
 			},
 		},
 	})
 }
 
-func configResourceWithInvalidGroupId(terraformResource, networkName, resourceName string) string {
-	return acctests.Nprintf(`
-	resource "twingate_remote_network" "${network_resource}" {
-	  name = "%s"
-	}
-
-	resource "twingate_resource" "${resource_resource}" {
-	  name = "${resource_name}"
-	  address = "acc-test.com"
-	  access {
-	    group_ids = ["foo", "bar"]
-	  }
-	  remote_network_id = twingate_remote_network.${network_resource}.id
-	}
-	`,
-		map[string]any{
-			"network_resource":  terraformResource,
-			"network_name":      networkName,
-			"resource_resource": terraformResource,
-			"resource_name":     resourceName,
-		})
-}
-
 func TestAccTwingateResourceWithTcpDenyAllPolicy(t *testing.T) {
 	t.Parallel()
 
-	terraformResource := test.RandomResourceName()
-	theResource := acctests.TerraformResource(terraformResource)
-	resourceName := test.RandomResourceName()
-	networkName := test.RandomResourceName()
+	network := NewRemoteNetwork()
+	resource := NewResource(network.TerraformResourceID()).Set(
+		attr.Protocols, &Protocols{
+			AllowIcmp: true,
+			TCP:       Protocol{Policy: model.PolicyDenyAll},
+			UDP:       Protocol{Policy: model.PolicyAllowAll},
+		},
+	)
+	theResource := resource.TerraformResource()
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -356,7 +231,7 @@ func TestAccTwingateResourceWithTcpDenyAllPolicy(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateResourceDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: configResourceWithPolicy(terraformResource, networkName, resourceName, model.PolicyDenyAll, model.PolicyAllowAll),
+				Config: configBuilder(resource, network),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					sdk.TestCheckResourceAttr(theResource, tcpPolicy, model.PolicyDenyAll),
@@ -364,7 +239,7 @@ func TestAccTwingateResourceWithTcpDenyAllPolicy(t *testing.T) {
 			},
 			// expecting no changes - empty plan
 			{
-				Config:   configResourceWithPolicy(terraformResource, networkName, resourceName, model.PolicyDenyAll, model.PolicyAllowAll),
+				Config:   configBuilder(resource, network),
 				PlanOnly: true,
 			},
 		},
@@ -407,10 +282,15 @@ func configResourceWithPolicy(terraformResource, networkName, resourceName, tcpP
 func TestAccTwingateResourceWithUdpDenyAllPolicy(t *testing.T) {
 	t.Parallel()
 
-	terraformResource := test.RandomResourceName()
-	theResource := acctests.TerraformResource(terraformResource)
-	remoteNetworkName := test.RandomName()
-	resourceName := test.RandomResourceName()
+	network := NewRemoteNetwork()
+	resource := NewResource(network.TerraformResourceID()).Set(
+		attr.Protocols, &Protocols{
+			AllowIcmp: true,
+			TCP:       Protocol{Policy: model.PolicyAllowAll},
+			UDP:       Protocol{Policy: model.PolicyDenyAll},
+		},
+	)
+	theResource := resource.TerraformResource()
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -418,7 +298,7 @@ func TestAccTwingateResourceWithUdpDenyAllPolicy(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateResourceDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: configResourceWithPolicy(terraformResource, remoteNetworkName, resourceName, model.PolicyAllowAll, model.PolicyDenyAll),
+				Config: configBuilder(resource, network),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					sdk.TestCheckResourceAttr(theResource, udpPolicy, model.PolicyDenyAll),
@@ -426,51 +306,27 @@ func TestAccTwingateResourceWithUdpDenyAllPolicy(t *testing.T) {
 			},
 			// expecting no changes - empty plan
 			{
-				Config:   configResourceWithPolicy(terraformResource, remoteNetworkName, resourceName, model.PolicyAllowAll, model.PolicyDenyAll),
+				Config:   configBuilder(resource, network),
 				PlanOnly: true,
 			},
 		},
 	})
 }
 
-func createResourceWithUdpDenyAllPolicy(networkName, groupName, resourceName string) string {
-	return fmt.Sprintf(`
-    resource "twingate_remote_network" "test6" {
-      name = "%s"
-    }
-
-    resource "twingate_group" "g6" {
-      name = "%s"
-    }
-
-    resource "twingate_resource" "test6" {
-      name = "%s"
-      address = "acc-test.com"
-      remote_network_id = twingate_remote_network.test6.id
-      access {
-        group_ids = [twingate_group.g6.id]
-      }
-      protocols = {
-        allow_icmp = true
-        tcp = {
-          policy = "%s"
-        }
-        udp = {
-          policy = "%s"
-        }
-      }
-    }
-	`, networkName, groupName, resourceName, model.PolicyAllowAll, model.PolicyDenyAll)
-}
-
 func TestAccTwingateResourceWithDenyAllPolicyAndEmptyPortsList(t *testing.T) {
 	t.Parallel()
 
-	terraformResource := test.RandomResourceName()
-	theResource := acctests.TerraformResource(terraformResource)
-	remoteNetworkName := test.RandomName()
-	groupName := test.RandomGroupName()
-	resourceName := test.RandomResourceName()
+	group := NewGroup()
+	network := NewRemoteNetwork()
+	resource := NewResource(network.TerraformResourceID()).Set(
+		attr.Protocols, &Protocols{
+			AllowIcmp: true,
+			TCP:       Protocol{Policy: model.PolicyDenyAll, ShowEmptyPorts: true},
+			UDP:       Protocol{Policy: model.PolicyDenyAll},
+		},
+		attr.Access, []Access{{GroupIDs: collectResourceIDs(group)}},
+	)
+	theResource := resource.TerraformResource()
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -478,9 +334,9 @@ func TestAccTwingateResourceWithDenyAllPolicyAndEmptyPortsList(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateResourceDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: configResourceWithPolicyAndEmptyTCPPortsList(terraformResource, remoteNetworkName, groupName, resourceName, model.PolicyDenyAll, model.PolicyDenyAll),
+				Config: configBuilder(resource, network, group),
 				Check: acctests.ComposeTestCheckFunc(
-					sdk.TestCheckResourceAttr(theResource, attr.Name, resourceName),
+					sdk.TestCheckResourceAttr(theResource, attr.Name, resource.Name),
 					sdk.TestCheckResourceAttr(theResource, tcpPolicy, model.PolicyDenyAll),
 					sdk.TestCheckNoResourceAttr(theResource, tcpPortsLen),
 					sdk.TestCheckResourceAttr(theResource, udpPolicy, model.PolicyDenyAll),
@@ -491,57 +347,25 @@ func TestAccTwingateResourceWithDenyAllPolicyAndEmptyPortsList(t *testing.T) {
 	})
 }
 
-func configResourceWithPolicyAndEmptyTCPPortsList(terraformResource, networkName, groupName, resourceName, tcpPolicy, udpPolicy string) string {
-	return acctests.Nprintf(`
-    resource "twingate_remote_network" "${network_resource}" {
-      name = "${network_name}"
-    }
-
-    resource "twingate_group" "${group_resource}" {
-      name = "${group_name}"
-    }
-
-    resource "twingate_resource" "${resource_resource}" {
-      name = "${resource_name}"
-      address = "new-acc-test.com"
-      remote_network_id = twingate_remote_network.${network_resource}.id
-      access {
-        group_ids = [twingate_group.${group_resource}.id]
-      }
-      protocols = {
-        allow_icmp = true
-        tcp = {
-          policy = "${tcp_policy}"
-          ports = []
-        }
-        udp = {
-          policy = "${udp_policy}"
-        }
-      }
-    }
-    `,
-		map[string]any{
-			"network_resource":  terraformResource,
-			"network_name":      networkName,
-			"group_resource":    terraformResource,
-			"group_name":        groupName,
-			"resource_resource": terraformResource,
-			"resource_name":     resourceName,
-			"tcp_policy":        tcpPolicy,
-			"udp_policy":        udpPolicy,
-		})
-}
-
 func TestAccTwingateResourceWithInvalidPortRange(t *testing.T) {
 	t.Parallel()
 
-	terraformResource := test.RandomResourceName()
-	remoteNetworkName := test.RandomName()
-	resourceName := test.RandomResourceName()
 	expectedError := regexp.MustCompile("failed to parse protocols port range")
 
+	network := NewRemoteNetwork()
+	resource := NewResource(network.TerraformResourceID()).Set(
+		attr.Protocols, &Protocols{
+			AllowIcmp: true,
+			TCP:       Protocol{Policy: model.PolicyRestricted},
+			UDP:       Protocol{Policy: model.PolicyRestricted},
+		},
+	)
+
 	genConfig := func(portRange string) string {
-		return configResourceWithPortRange(terraformResource, remoteNetworkName, resourceName, portRange)
+		resource.Protocols.TCP.Ports = []string{portRange}
+		resource.Protocols.UDP.Ports = []string{portRange}
+
+		return configBuilder(resource, network)
 	}
 
 	sdk.Test(t, sdk.TestCase{
@@ -549,72 +373,60 @@ func TestAccTwingateResourceWithInvalidPortRange(t *testing.T) {
 		PreCheck:                 func() { acctests.PreCheck(t) },
 		Steps: []sdk.TestStep{
 			{
-				Config:      genConfig(`""`),
+				Config:      genConfig(""),
 				ExpectError: expectedError,
 			},
 			{
-				Config:      genConfig(`" "`),
+				Config:      genConfig(" "),
 				ExpectError: expectedError,
 			},
 			{
-				Config:      genConfig(`"foo"`),
+				Config:      genConfig("foo"),
 				ExpectError: expectedError,
 			},
 			{
-				Config:      genConfig(`"80-"`),
+				Config:      genConfig("80-"),
 				ExpectError: expectedError,
 			},
 			{
-				Config:      genConfig(`"-80"`),
+				Config:      genConfig("-80"),
 				ExpectError: expectedError,
 			},
 			{
-				Config:      genConfig(`"80-90-100"`),
+				Config:      genConfig("80-90-100"),
 				ExpectError: expectedError,
 			},
 			{
-				Config:      genConfig(`"80-70"`),
+				Config:      genConfig("80-70"),
 				ExpectError: expectedError,
 			},
 			{
-				Config:      genConfig(`"0-65536"`),
+				Config:      genConfig("0-65536"),
 				ExpectError: expectedError,
 			},
 		},
 	})
 }
 
-func createResourceWithRestrictedPolicyAndPortRange(networkName, resourceName, portRange string) string {
-	return fmt.Sprintf(`
-	resource "twingate_remote_network" "test8" {
-	  name = "%s"
-	}
-
-	resource "twingate_resource" "test8" {
-	  name = "%s"
-	  address = "new-acc-test.com"
-	  remote_network_id = twingate_remote_network.test8.id
-	  protocols = {
-	    allow_icmp = true
-	    tcp = {
-	      policy = "%s"
-	      ports = [%s]
-	    }
-	    udp = {
-	      policy = "%s"
-	    }
-	  }
-	}
-	`, networkName, resourceName, model.PolicyRestricted, portRange, model.PolicyAllowAll)
-}
-
 func TestAccTwingateResourcePortReorderingCreatesNoChanges(t *testing.T) {
 	t.Parallel()
 
-	terraformResource := test.RandomResourceName()
-	theResource := acctests.TerraformResource(terraformResource)
-	remoteNetworkName := test.RandomName()
-	resourceName := test.RandomResourceName()
+	network := NewRemoteNetwork()
+	resource := NewResource(network.TerraformResourceID()).Set(
+		attr.Protocols, &Protocols{
+			AllowIcmp: true,
+			TCP:       Protocol{Policy: model.PolicyRestricted},
+			UDP:       Protocol{Policy: model.PolicyRestricted},
+		},
+	)
+	theResource := resource.TerraformResource()
+
+	genConfig := func(portRange ...string) string {
+		resource.Protocols.TCP.Ports = portRange
+		resource.Protocols.UDP.Ports = portRange
+
+		return configBuilder(resource, network)
+	}
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -622,7 +434,7 @@ func TestAccTwingateResourcePortReorderingCreatesNoChanges(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateResourceDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: configResourceWithPortRange(terraformResource, remoteNetworkName, resourceName, `"80", "82-83"`),
+				Config: genConfig("80", "82-83"),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					sdk.TestCheckResourceAttr(theResource, firstTCPPort, "80"),
@@ -631,17 +443,17 @@ func TestAccTwingateResourcePortReorderingCreatesNoChanges(t *testing.T) {
 			},
 			// no changes
 			{
-				Config:   configResourceWithPortRange(terraformResource, remoteNetworkName, resourceName, `"82-83", "80"`),
+				Config:   genConfig("82-83", "80"),
 				PlanOnly: true,
 			},
 			// no changes
 			{
-				Config:   configResourceWithPortRange(terraformResource, remoteNetworkName, resourceName, `"82", "83", "80"`),
+				Config:   genConfig("82", "83", "80"),
 				PlanOnly: true,
 			},
 			// new changes applied
 			{
-				Config: configResourceWithPortRange(terraformResource, remoteNetworkName, resourceName, `"70", "82-83"`),
+				Config: genConfig("70", "82-83"),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					sdk.TestCheckResourceAttr(theResource, firstTCPPort, "70"),
@@ -689,10 +501,22 @@ func configResourceWithPortRange(terraformResource, networkName, resourceName, p
 func TestAccTwingateResourcePortsRepresentationChanged(t *testing.T) {
 	t.Parallel()
 
-	terraformResource := test.RandomResourceName()
-	theResource := acctests.TerraformResource(terraformResource)
-	remoteNetworkName := test.RandomName()
-	resourceName := test.RandomResourceName()
+	network := NewRemoteNetwork()
+	resource := NewResource(network.TerraformResourceID()).Set(
+		attr.Protocols, &Protocols{
+			AllowIcmp: true,
+			TCP:       Protocol{Policy: model.PolicyRestricted},
+			UDP:       Protocol{Policy: model.PolicyRestricted},
+		},
+	)
+	theResource := resource.TerraformResource()
+
+	genConfig := func(portRange ...string) string {
+		resource.Protocols.TCP.Ports = portRange
+		resource.Protocols.UDP.Ports = portRange
+
+		return configBuilder(resource, network)
+	}
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -700,7 +524,7 @@ func TestAccTwingateResourcePortsRepresentationChanged(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateResourceDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: configResourceWithPortRange(terraformResource, remoteNetworkName, resourceName, `"82", "83", "80"`),
+				Config: genConfig("82", "83", "80"),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					sdk.TestCheckResourceAttr(theResource, tcpPortsLen, "3"),
@@ -713,10 +537,22 @@ func TestAccTwingateResourcePortsRepresentationChanged(t *testing.T) {
 func TestAccTwingateResourcePortsNotChanged(t *testing.T) {
 	t.Parallel()
 
-	terraformResource := test.RandomResourceName()
-	theResource := acctests.TerraformResource(terraformResource)
-	remoteNetworkName := test.RandomName()
-	resourceName := test.RandomResourceName()
+	network := NewRemoteNetwork()
+	resource := NewResource(network.TerraformResourceID()).Set(
+		attr.Protocols, &Protocols{
+			AllowIcmp: true,
+			TCP:       Protocol{Policy: model.PolicyRestricted},
+			UDP:       Protocol{Policy: model.PolicyRestricted},
+		},
+	)
+	theResource := resource.TerraformResource()
+
+	genConfig := func(portRange ...string) string {
+		resource.Protocols.TCP.Ports = portRange
+		resource.Protocols.UDP.Ports = portRange
+
+		return configBuilder(resource, network)
+	}
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -724,7 +560,7 @@ func TestAccTwingateResourcePortsNotChanged(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateResourceDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: configResourceWithPortRange(terraformResource, remoteNetworkName, resourceName, `"82", "83", "80"`),
+				Config: genConfig("82", "83", "80"),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					sdk.TestCheckResourceAttr(theResource, tcpPortsLen, "3"),
@@ -732,7 +568,7 @@ func TestAccTwingateResourcePortsNotChanged(t *testing.T) {
 			},
 			{
 				PlanOnly: true,
-				Config:   configResourceWithPortRange(terraformResource, remoteNetworkName, resourceName, `"80", "82-83"`),
+				Config:   genConfig("80", "82-83"),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					sdk.TestCheckResourceAttr(theResource, tcpPortsLen, "2"),
@@ -745,10 +581,22 @@ func TestAccTwingateResourcePortsNotChanged(t *testing.T) {
 func TestAccTwingateResourcePortReorderingNoChanges(t *testing.T) {
 	t.Parallel()
 
-	terraformResource := test.RandomResourceName()
-	theResource := acctests.TerraformResource(terraformResource)
-	remoteNetworkName := test.RandomName()
-	resourceName := test.RandomResourceName()
+	network := NewRemoteNetwork()
+	resource := NewResource(network.TerraformResourceID()).Set(
+		attr.Protocols, &Protocols{
+			AllowIcmp: true,
+			TCP:       Protocol{Policy: model.PolicyRestricted},
+			UDP:       Protocol{Policy: model.PolicyRestricted},
+		},
+	)
+	theResource := resource.TerraformResource()
+
+	genConfig := func(portRange ...string) string {
+		resource.Protocols.TCP.Ports = portRange
+		resource.Protocols.UDP.Ports = portRange
+
+		return configBuilder(resource, network)
+	}
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -756,7 +604,7 @@ func TestAccTwingateResourcePortReorderingNoChanges(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateResourceDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: configResourceWithPortRange(terraformResource, remoteNetworkName, resourceName, `"82", "83", "80"`),
+				Config: genConfig("82", "83", "80"),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					sdk.TestCheckResourceAttr(theResource, firstTCPPort, "80"),
@@ -765,12 +613,12 @@ func TestAccTwingateResourcePortReorderingNoChanges(t *testing.T) {
 			},
 			// no changes
 			{
-				Config:   configResourceWithPortRange(terraformResource, remoteNetworkName, resourceName, `"82-83", "80"`),
+				Config:   genConfig("82-83", "80"),
 				PlanOnly: true,
 			},
 			// no changes
 			{
-				Config:   configResourceWithPortRange(terraformResource, remoteNetworkName, resourceName, `"82-83", "80"`),
+				Config:   genConfig("82-83", "80"),
 				PlanOnly: true,
 				Check: acctests.ComposeTestCheckFunc(
 					sdk.TestCheckResourceAttr(theResource, udpPortsLen, "2"),
@@ -778,7 +626,7 @@ func TestAccTwingateResourcePortReorderingNoChanges(t *testing.T) {
 			},
 			// new changes applied
 			{
-				Config: configResourceWithPortRange(terraformResource, remoteNetworkName, resourceName, `"70", "82-83"`),
+				Config: genConfig("70", "82-83"),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					sdk.TestCheckResourceAttr(theResource, firstTCPPort, "70"),
@@ -792,10 +640,9 @@ func TestAccTwingateResourcePortReorderingNoChanges(t *testing.T) {
 func TestAccTwingateResourceSetActiveStateOnUpdate(t *testing.T) {
 	t.Parallel()
 
-	terraformResource := test.RandomResourceName()
-	theResource := acctests.TerraformResource(terraformResource)
-	remoteNetworkName := test.RandomName()
-	resourceName := test.RandomResourceName()
+	network := NewRemoteNetwork()
+	resource := NewResource(network.TerraformResourceID())
+	theResource := resource.TerraformResource()
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -803,7 +650,7 @@ func TestAccTwingateResourceSetActiveStateOnUpdate(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateResourceDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: configResourceBasic(terraformResource, remoteNetworkName, resourceName),
+				Config: configBuilder(resource, network),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					acctests.DeactivateTwingateResource(theResource),
@@ -814,7 +661,7 @@ func TestAccTwingateResourceSetActiveStateOnUpdate(t *testing.T) {
 				ExpectNonEmptyPlan: true,
 			},
 			{
-				Config: configResourceBasic(terraformResource, remoteNetworkName, resourceName),
+				Config: configBuilder(resource, network),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceActiveState(theResource, true),
 				),
@@ -826,10 +673,9 @@ func TestAccTwingateResourceSetActiveStateOnUpdate(t *testing.T) {
 func TestAccTwingateResourceReCreateAfterDeletion(t *testing.T) {
 	t.Parallel()
 
-	terraformResource := test.RandomResourceName()
-	theResource := acctests.TerraformResource(terraformResource)
-	remoteNetworkName := test.RandomName()
-	resourceName := test.RandomResourceName()
+	network := NewRemoteNetwork()
+	res := NewResource(network.TerraformResourceID())
+	theResource := res.TerraformResource()
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -837,7 +683,7 @@ func TestAccTwingateResourceReCreateAfterDeletion(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateResourceDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: configResourceBasic(terraformResource, remoteNetworkName, resourceName),
+				Config: configBuilder(res, network),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					acctests.DeleteTwingateResource(theResource, resource.TwingateResource),
@@ -845,7 +691,7 @@ func TestAccTwingateResourceReCreateAfterDeletion(t *testing.T) {
 				ExpectNonEmptyPlan: true,
 			},
 			{
-				Config: configResourceBasic(terraformResource, remoteNetworkName, resourceName),
+				Config: configBuilder(res, network),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 				),
@@ -857,10 +703,22 @@ func TestAccTwingateResourceReCreateAfterDeletion(t *testing.T) {
 func TestAccTwingateResourceImport(t *testing.T) {
 	t.Parallel()
 
-	terraformResource := test.RandomResourceName()
-	theResource := acctests.TerraformResource(terraformResource)
-	remoteNetworkName := test.RandomName()
-	resourceName := test.RandomResourceName()
+	network := NewRemoteNetwork()
+	resource := NewResource(network.TerraformResourceID()).Set(
+		attr.Protocols, &Protocols{
+			AllowIcmp: true,
+			TCP:       Protocol{Policy: model.PolicyRestricted},
+			UDP:       Protocol{Policy: model.PolicyRestricted},
+		},
+	)
+	theResource := resource.TerraformResource()
+
+	genConfig := func(portRange ...string) string {
+		resource.Protocols.TCP.Ports = portRange
+		resource.Protocols.UDP.Ports = portRange
+
+		return configBuilder(resource, network)
+	}
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -868,7 +726,7 @@ func TestAccTwingateResourceImport(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateResourceDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: configResourceWithPortRange(terraformResource, remoteNetworkName, resourceName, `"80", "82-83"`),
+				Config: genConfig("80", "82-83"),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 				),
@@ -877,7 +735,7 @@ func TestAccTwingateResourceImport(t *testing.T) {
 				ImportState:  true,
 				ResourceName: theResource,
 				ImportStateCheck: acctests.CheckImportState(map[string]string{
-					attr.Address: "new-acc-test.com",
+					attr.Address: resource.Address,
 					tcpPolicy:    model.PolicyRestricted,
 					tcpPortsLen:  "2",
 					firstTCPPort: "80",
@@ -886,41 +744,6 @@ func TestAccTwingateResourceImport(t *testing.T) {
 			},
 		},
 	})
-}
-
-func createResource12(networkName, groupName1, groupName2, resourceName string) string {
-	return fmt.Sprintf(`
-	resource "twingate_remote_network" "test12" {
-	  name = "%s"
-	}
-
-    resource "twingate_group" "g121" {
-      name = "%s"
-    }
-
-    resource "twingate_group" "g122" {
-      name = "%s"
-    }
-
-	resource "twingate_resource" "test12" {
-	  name = "%s"
-	  address = "acc-test.com.12"
-	  remote_network_id = twingate_remote_network.test12.id
-	  access {
-	    group_ids = [twingate_group.g121.id, twingate_group.g122.id]
-      }
-      protocols = {
-		allow_icmp = true
-        tcp = {
-			policy = "%s"
-            ports = ["80", "82-83"]
-        }
-		udp = {
- 			policy = "%s"
-		}
-      }
-	}
-	`, networkName, groupName1, groupName2, resourceName, model.PolicyRestricted, model.PolicyAllowAll)
 }
 
 func genNewGroups(resourcePrefix string, count int) ([]string, []string) {
@@ -961,10 +784,17 @@ func genNewServiceAccounts(resourcePrefix string, count int) ([]string, []string
 func TestAccTwingateResourceAddAccessServiceAccounts(t *testing.T) {
 	t.Parallel()
 
-	terraformResource := test.RandomResourceName()
-	theResource := acctests.TerraformResource(terraformResource)
-	serviceAccountConfig := configServiceAccount(terraformResource, test.RandomName())
-	serviceAccountID := acctests.TerraformServiceAccount(terraformResource) + ".id"
+	network := NewRemoteNetwork()
+	serviceAccount := NewServiceAccount()
+	resource := NewResource(network.TerraformResourceID()).Set(
+		attr.Protocols, &Protocols{
+			AllowIcmp: true,
+			TCP:       Protocol{Policy: model.PolicyRestricted, Ports: []string{"80", "82-83"}},
+			UDP:       Protocol{Policy: model.PolicyAllowAll},
+		},
+		attr.Access, []Access{{ServiceAccountIDs: collectResourceIDs(serviceAccount)}},
+	)
+	theResource := resource.TerraformResource()
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -972,7 +802,7 @@ func TestAccTwingateResourceAddAccessServiceAccounts(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateResourceDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: configResourceWithServiceAccount(terraformResource, test.RandomName(), test.RandomResourceName(), serviceAccountConfig, serviceAccountID),
+				Config: configBuilder(resource, network, serviceAccount),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					sdk.TestCheckResourceAttr(theResource, accessServiceAccountIdsLen, "1"),

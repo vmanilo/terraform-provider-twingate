@@ -15,9 +15,10 @@ type Connector struct {
 	StatusUpdatesEnabled *bool
 }
 
-func NewConnector() *Connector {
+func NewConnector(remoteNetworkID string) *Connector {
 	return &Connector{
-		ResourceName: test.RandomResourceName(),
+		ResourceName:    test.RandomResourceName(),
+		RemoteNetworkID: remoteNetworkID,
 	}
 }
 
@@ -37,6 +38,10 @@ func (r *Connector) optionalAttributes() string {
 
 func (r *Connector) TerraformResource() string {
 	return acctests.TerraformConnector(r.ResourceName)
+}
+
+func (r *Connector) TerraformResourceID() string {
+	return r.TerraformResource() + ".id"
 }
 
 func (r *Connector) String() string {
