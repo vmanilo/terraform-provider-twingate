@@ -9,78 +9,8 @@ import (
 	"github.com/Twingate/terraform-provider-twingate/twingate/internal/test"
 	"github.com/Twingate/terraform-provider-twingate/twingate/internal/test/acctests"
 	sdk "github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 )
-
-func TestAccTwingateRemoteNetworkCreate(t *testing.T) {
-	t.Parallel()
-
-	networkResource := test.RandomNetworkName()
-	theResource := acctests.TerraformRemoteNetwork(networkResource)
-	networkName := test.RandomName()
-	networkLocation := model.LocationAzure
-
-	sdk.Test(t, sdk.TestCase{
-		ProtoV6ProviderFactories: acctests.ProviderFactories,
-		PreCheck:                 func() { acctests.PreCheck(t) },
-		CheckDestroy:             acctests.CheckTwingateRemoteNetworkDestroy,
-		Steps: []sdk.TestStep{
-			{
-				Config: configRemoteNetworkWithLocation(networkResource, networkName, networkLocation),
-				Check: acctests.ComposeTestCheckFunc(
-					acctests.CheckTwingateResourceExists(theResource),
-					sdk.TestCheckResourceAttr(theResource, attr.Name, networkName),
-					sdk.TestCheckResourceAttr(theResource, attr.Location, networkLocation),
-				),
-			},
-		},
-	})
-}
-
-func configRemoteNetworkWithLocation(networkResource, name, location string) string {
-	return acctests.Nprintf(`
-	resource "twingate_remote_network" "${network_resource}" {
-	  name = "${name}"
-	  location = "${location}"
-	}
-	`, map[string]any{
-		"network_resource": networkResource,
-		"name":             name,
-		"location":         location,
-	})
-}
-
-func TestAccTwingateRemoteNetworkUpdate(t *testing.T) {
-	t.Parallel()
-
-	networkResource := test.RandomNetworkName()
-	theResource := acctests.TerraformRemoteNetwork(networkResource)
-	name1 := test.RandomName()
-	name2 := test.RandomName()
-
-	sdk.Test(t, sdk.TestCase{
-		ProtoV6ProviderFactories: acctests.ProviderFactories,
-		PreCheck:                 func() { acctests.PreCheck(t) },
-		CheckDestroy:             acctests.CheckTwingateRemoteNetworkDestroy,
-		Steps: []sdk.TestStep{
-			{
-				Config: configRemoteNetwork(networkResource, name1),
-				Check: acctests.ComposeTestCheckFunc(
-					acctests.CheckTwingateResourceExists(theResource),
-					sdk.TestCheckResourceAttr(theResource, attr.Name, name1),
-					sdk.TestCheckResourceAttr(theResource, attr.Location, model.LocationOther),
-				),
-			},
-			{
-				Config: configRemoteNetworkWithLocation(networkResource, name2, model.LocationAWS),
-				Check: acctests.ComposeTestCheckFunc(
-					acctests.CheckTwingateResourceExists(theResource),
-					sdk.TestCheckResourceAttr(theResource, attr.Name, name2),
-					sdk.TestCheckResourceAttr(theResource, attr.Location, model.LocationAWS),
-				),
-			},
-		},
-	})
-}
 
 func configRemoteNetwork(networkResource, name string) string {
 	return acctests.Nprintf(`
@@ -94,11 +24,11 @@ func configRemoteNetwork(networkResource, name string) string {
 		})
 }
 
-func TestAccTwingateRemoteNetworkDeleteNonExisting(t *testing.T) {
+func TestAccTwingateRemoteNetworkCreate(t *testing.T) {
 	t.Parallel()
 
-	networkResource := test.RandomNetworkName()
-	theResource := acctests.TerraformRemoteNetwork(networkResource)
+	network := NewRemoteNetwork()
+	theResource := network.TerraformResource()
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -106,11 +36,73 @@ func TestAccTwingateRemoteNetworkDeleteNonExisting(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateRemoteNetworkDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config:  configRemoteNetwork(networkResource, test.RandomName()),
-				Destroy: true,
+				Config: configBuilder(network.Set(attr.Location, model.LocationAzure)),
 				Check: acctests.ComposeTestCheckFunc(
-					acctests.CheckTwingateResourceDoesNotExists(theResource),
+					acctests.CheckTwingateResourceExists(theResource),
+					sdk.TestCheckResourceAttr(theResource, attr.Name, network.Name),
+					sdk.TestCheckResourceAttr(theResource, attr.Location, model.LocationAzure),
 				),
+			},
+		},
+	})
+}
+
+func TestAccTwingateRemoteNetworkUpdate(t *testing.T) {
+	t.Parallel()
+
+	name1 := test.RandomName()
+	name2 := test.RandomName()
+
+	network := NewRemoteNetwork()
+	theResource := network.TerraformResource()
+
+	sdk.Test(t, sdk.TestCase{
+		ProtoV6ProviderFactories: acctests.ProviderFactories,
+		PreCheck:                 func() { acctests.PreCheck(t) },
+		CheckDestroy:             acctests.CheckTwingateRemoteNetworkDestroy,
+		Steps: []sdk.TestStep{
+			{
+				Config: configBuilder(network.Set(attr.Name, name1)),
+				Check: acctests.ComposeTestCheckFunc(
+					acctests.CheckTwingateResourceExists(theResource),
+					sdk.TestCheckResourceAttr(theResource, attr.Name, name1),
+					sdk.TestCheckResourceAttr(theResource, attr.Location, model.LocationOther),
+				),
+			},
+			{
+				Config: configBuilder(network.Set(attr.Name, name2, attr.Location, model.LocationAWS)),
+				Check: acctests.ComposeTestCheckFunc(
+					acctests.CheckTwingateResourceExists(theResource),
+					sdk.TestCheckResourceAttr(theResource, attr.Name, name2),
+					sdk.TestCheckResourceAttr(theResource, attr.Location, model.LocationAWS),
+				),
+			},
+		},
+	})
+}
+
+func TestAccTwingateRemoteNetworkDeleteNonExisting(t *testing.T) {
+	t.Parallel()
+
+	network := NewRemoteNetwork()
+	theResource := network.TerraformResource()
+
+	sdk.Test(t, sdk.TestCase{
+		ProtoV6ProviderFactories: acctests.ProviderFactories,
+		PreCheck:                 func() { acctests.PreCheck(t) },
+		CheckDestroy:             acctests.CheckTwingateRemoteNetworkDestroy,
+		Steps: []sdk.TestStep{
+			{
+				Config:  configBuilder(network),
+				Destroy: true,
+			},
+			{
+				Config: configBuilder(network),
+				ConfigPlanChecks: sdk.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction(theResource, plancheck.ResourceActionCreate),
+					},
+				},
 			},
 		},
 	})
@@ -119,9 +111,8 @@ func TestAccTwingateRemoteNetworkDeleteNonExisting(t *testing.T) {
 func TestAccTwingateRemoteNetworkReCreateAfterDeletion(t *testing.T) {
 	t.Parallel()
 
-	networkResource := test.RandomNetworkName()
-	theResource := acctests.TerraformRemoteNetwork(networkResource)
-	networkName := test.RandomName()
+	network := NewRemoteNetwork()
+	theResource := network.TerraformResource()
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -129,7 +120,7 @@ func TestAccTwingateRemoteNetworkReCreateAfterDeletion(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateRemoteNetworkDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: configRemoteNetwork(networkResource, networkName),
+				Config: configBuilder(network),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					acctests.DeleteTwingateResource(theResource, resource.TwingateRemoteNetwork),
@@ -137,7 +128,7 @@ func TestAccTwingateRemoteNetworkReCreateAfterDeletion(t *testing.T) {
 				ExpectNonEmptyPlan: true,
 			},
 			{
-				Config: configRemoteNetwork(networkResource, networkName),
+				Config: configBuilder(network),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 				),
@@ -149,9 +140,8 @@ func TestAccTwingateRemoteNetworkReCreateAfterDeletion(t *testing.T) {
 func TestAccTwingateRemoteNetworkUpdateWithTheSameName(t *testing.T) {
 	t.Parallel()
 
-	networkResource := test.RandomNetworkName()
-	theResource := acctests.TerraformRemoteNetwork(networkResource)
-	name := test.RandomName()
+	network := NewRemoteNetwork()
+	theResource := network.TerraformResource()
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -159,18 +149,18 @@ func TestAccTwingateRemoteNetworkUpdateWithTheSameName(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateRemoteNetworkDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: configRemoteNetwork(networkResource, name),
+				Config: configBuilder(network),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
-					sdk.TestCheckResourceAttr(theResource, attr.Name, name),
+					sdk.TestCheckResourceAttr(theResource, attr.Name, network.Name),
 					sdk.TestCheckResourceAttr(theResource, attr.Location, model.LocationOther),
 				),
 			},
 			{
-				Config: configRemoteNetworkWithLocation(networkResource, name, model.LocationAWS),
+				Config: configBuilder(network.Set(attr.Location, model.LocationAWS)),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
-					sdk.TestCheckResourceAttr(theResource, attr.Name, name),
+					sdk.TestCheckResourceAttr(theResource, attr.Name, network.Name),
 					sdk.TestCheckResourceAttr(theResource, attr.Location, model.LocationAWS),
 				),
 			},

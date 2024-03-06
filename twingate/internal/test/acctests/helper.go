@@ -15,15 +15,15 @@ import (
 	"github.com/Twingate/terraform-provider-twingate/twingate/internal/attr"
 	"github.com/Twingate/terraform-provider-twingate/twingate/internal/client"
 	"github.com/Twingate/terraform-provider-twingate/twingate/internal/model"
+	"github.com/Twingate/terraform-provider-twingate/twingate/internal/provider/datasource"
 	"github.com/Twingate/terraform-provider-twingate/twingate/internal/provider/resource"
 	"github.com/Twingate/terraform-provider-twingate/twingate/internal/test"
-	twingateV2 "github.com/Twingate/terraform-provider-twingate/twingate/v2"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
-	"github.com/hashicorp/terraform-plugin-mux/tf5to6server"
-	"github.com/hashicorp/terraform-plugin-mux/tf6muxserver"
 	sdk "github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
+	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
 )
 
 var (
@@ -34,6 +34,7 @@ var (
 	ErrUnknownResourceType      = errors.New("unknown resource type")
 	ErrClientNotInited          = errors.New("meta client not inited")
 	ErrSecurityPoliciesNotFound = errors.New("security policies not found")
+	ErrInvalidPath              = errors.New("invalid path: the path value cannot be asserted as string")
 )
 
 func ErrServiceAccountsLenMismatch(expected, actual int) error {
@@ -70,26 +71,7 @@ var providerClient = func() *client.Client { //nolint
 }()
 
 var ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){ //nolint
-	"twingate": func() (tfprotov6.ProviderServer, error) {
-		upgradedSdkProvider, err := tf5to6server.UpgradeServer(context.Background(), twingate.Provider("test").GRPCProvider)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		providers := []func() tfprotov6.ProviderServer{
-			func() tfprotov6.ProviderServer {
-				return upgradedSdkProvider
-			},
-			providerserver.NewProtocol6(twingateV2.New("test")()),
-		}
-
-		provider, err := tf6muxserver.NewMuxServer(context.Background(), providers...)
-		if err != nil {
-			return nil, fmt.Errorf("failed to run mux server: %w", err)
-		}
-
-		return provider, nil
-	},
+	"twingate": providerserver.NewProtocol6WithError(twingate.New("test")()),
 }
 
 // SetPageLimit - changes page limit, can't be uses in parallel tests.
@@ -206,6 +188,10 @@ func GetTwingateResourceID(resourceName string, resourceID **string) sdk.TestChe
 	}
 }
 
+func DatasourceName(resource, name string) string {
+	return fmt.Sprintf("data.%s.%s", resource, name)
+}
+
 func ResourceName(resource, name string) string {
 	return fmt.Sprintf("%s.%s", resource, name)
 }
@@ -240,6 +226,10 @@ func TerraformServiceKey(name string) string {
 
 func TerraformUser(name string) string {
 	return ResourceName(resource.TwingateUser, name)
+}
+
+func TerraformDatasourceUsers(name string) string {
+	return DatasourceName(datasource.TwingateUsers, name)
 }
 
 func DeleteTwingateResource(resourceName, resourceType string) sdk.TestCheckFunc {
@@ -354,6 +344,66 @@ func CheckTwingateResourceActiveState(resourceName string, expectedActiveState b
 		}
 
 		return nil
+	}
+}
+
+type checkResourceActiveState struct {
+	resourceAddress     string
+	expectedActiveState bool
+}
+
+// CheckPlan implements the plan check logic.
+func (e checkResourceActiveState) CheckPlan(ctx context.Context, req plancheck.CheckPlanRequest, resp *plancheck.CheckPlanResponse) {
+	var resourceID string
+
+	for _, rc := range req.Plan.ResourceChanges {
+		if e.resourceAddress != rc.Address {
+			continue
+		}
+
+		result, err := tfjsonpath.Traverse(rc.Change.Before, tfjsonpath.New(attr.ID))
+		if err != nil {
+			resp.Error = err
+
+			return
+		}
+
+		resultID, ok := result.(string)
+		if !ok {
+			resp.Error = ErrInvalidPath
+
+			return
+		}
+
+		resourceID = resultID
+
+		break
+	}
+
+	if resourceID == "" {
+		resp.Error = fmt.Errorf("%s - Resource not found in plan ResourceChanges", e.resourceAddress) //nolint:goerr113
+
+		return
+	}
+
+	res, err := providerClient.ReadResource(ctx, resourceID)
+	if err != nil {
+		resp.Error = fmt.Errorf("failed to read resource: %w", err)
+
+		return
+	}
+
+	if res.IsActive != e.expectedActiveState {
+		resp.Error = fmt.Errorf("expected active state %v, got %v", e.expectedActiveState, res.IsActive) //nolint:goerr113
+
+		return
+	}
+}
+
+func CheckResourceActiveState(resourceAddress string, activeState bool) plancheck.PlanCheck {
+	return checkResourceActiveState{
+		resourceAddress:     resourceAddress,
+		expectedActiveState: activeState,
 	}
 }
 
@@ -475,7 +525,7 @@ func ListSecurityPolicies() ([]*model.SecurityPolicy, error) {
 		return nil, ErrClientNotInited
 	}
 
-	securityPolicies, err := providerClient.ReadSecurityPolicies(context.Background())
+	securityPolicies, err := providerClient.ReadSecurityPolicies(context.Background(), "", "")
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch all security policies: %w", err)
 	}
@@ -627,6 +677,49 @@ func CheckResourceServiceAccountsLen(resourceName string, expectedServiceAccount
 	}
 }
 
+func CheckResourceSecurityPolicy(resourceName string, expectedSecurityPolicyID string) sdk.TestCheckFunc {
+	return func(state *terraform.State) error {
+		resourceID, err := getResourceID(state, resourceName)
+		if err != nil {
+			return err
+		}
+
+		resource, err := providerClient.ReadResource(context.Background(), resourceID)
+		if err != nil {
+			return fmt.Errorf("resource with ID %s failed to read: %w", resourceID, err)
+		}
+
+		if resource.SecurityPolicyID != nil && *resource.SecurityPolicyID != expectedSecurityPolicyID {
+			return fmt.Errorf("expected security_policy_id %s, got %s", expectedSecurityPolicyID, *resource.SecurityPolicyID) //nolint
+		}
+
+		return nil
+	}
+}
+
+func UpdateResourceSecurityPolicy(resourceName, securityPolicyID string) sdk.TestCheckFunc {
+	return func(state *terraform.State) error {
+		resourceID, err := getResourceID(state, resourceName)
+		if err != nil {
+			return err
+		}
+
+		resource, err := providerClient.ReadResource(context.Background(), resourceID)
+		if err != nil {
+			return fmt.Errorf("resource with ID %s failed to read: %w", resourceID, err)
+		}
+
+		resource.SecurityPolicyID = &securityPolicyID
+
+		_, err = providerClient.UpdateResource(context.Background(), resource)
+		if err != nil {
+			return fmt.Errorf("resource with ID %s failed to update security_policy: %w", resourceID, err)
+		}
+
+		return nil
+	}
+}
+
 func AddGroupUser(groupResource, groupName, terraformUserID string) sdk.TestCheckFunc {
 	return func(state *terraform.State) error {
 		userID, err := getResourceID(state, getResourceNameFromID(terraformUserID))
@@ -702,7 +795,7 @@ func GetTestUsers() ([]*model.User, error) {
 		return nil, ErrClientNotInited
 	}
 
-	users, err := providerClient.ReadUsers(context.Background())
+	users, err := providerClient.ReadUsers(context.Background(), nil)
 	if err != nil {
 		return nil, err //nolint
 	}
@@ -756,7 +849,7 @@ func GetTestUser() (*model.User, error) {
 		return nil, ErrClientNotInited
 	}
 
-	users, err := providerClient.ReadUsers(context.Background())
+	users, err := providerClient.ReadUsers(context.Background(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get test users: %w", err)
 	}

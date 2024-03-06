@@ -13,6 +13,11 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
+var (
+	connectorsLen     = attr.Len(attr.Connectors)
+	connectorNamePath = attr.Path(attr.Connectors, attr.Name)
+)
+
 func TestAccDatasourceTwingateConnectors_basic(t *testing.T) {
 	acctests.SetPageLimit(t, 1)
 
@@ -196,4 +201,141 @@ func testCheckOutputNestedLen(name string, index int, attr string, length int) r
 
 		return nil
 	}
+}
+
+func TestAccDatasourceTwingateConnectorsFilterByName(t *testing.T) {
+	t.Parallel()
+
+	resourceName := test.RandomResourceName()
+	connectorName := test.RandomConnectorName()
+	theDatasource := "data.twingate_connectors." + resourceName
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: acctests.ProviderFactories,
+		PreCheck:                 func() { acctests.PreCheck(t) },
+		CheckDestroy:             acctests.CheckTwingateResourceDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testDatasourceTwingateConnectorsFilter(resourceName, test.RandomName(), connectorName, "", connectorName),
+				Check: acctests.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(theDatasource, connectorsLen, "1"),
+					resource.TestCheckResourceAttr(theDatasource, connectorNamePath, connectorName),
+				),
+			},
+		},
+	})
+}
+
+func testDatasourceTwingateConnectorsFilter(resourceName, networkName, connectorName, filter, name string) string {
+	return fmt.Sprintf(`
+	resource "twingate_remote_network" "%[1]s_network" {
+		name = "%[2]s"
+	}
+	resource "twingate_connector" "%[1]s_connector" {
+		remote_network_id = twingate_remote_network.%[1]s_network.id
+		name = "%[3]s"
+	}
+	
+	data "twingate_connectors" "%[1]s" {
+		name%[4]s = "%[5]s"
+		depends_on = [twingate_connector.%[1]s_connector]
+	}
+	`, resourceName, networkName, connectorName, filter, name)
+}
+
+func TestAccDatasourceTwingateConnectorsFilterByPrefix(t *testing.T) {
+	t.Parallel()
+
+	prefix := test.Prefix()
+	resourceName := test.RandomResourceName()
+	connectorName := test.RandomConnectorName()
+	theDatasource := "data.twingate_connectors." + resourceName
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: acctests.ProviderFactories,
+		PreCheck:                 func() { acctests.PreCheck(t) },
+		CheckDestroy:             acctests.CheckTwingateResourceDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testDatasourceTwingateConnectorsFilter(resourceName, test.RandomName(), connectorName, attr.FilterByPrefix, prefix),
+				Check: acctests.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(theDatasource, connectorsLen, "1"),
+					resource.TestCheckResourceAttr(theDatasource, connectorNamePath, connectorName),
+				),
+			},
+		},
+	})
+}
+
+func TestAccDatasourceTwingateConnectorsFilterBySuffix(t *testing.T) {
+	t.Parallel()
+
+	connectorName := test.RandomConnectorName()
+	prefix := test.Prefix()
+	suffix := connectorName[len(prefix):]
+	resourceName := test.RandomResourceName()
+	theDatasource := "data.twingate_connectors." + resourceName
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: acctests.ProviderFactories,
+		PreCheck:                 func() { acctests.PreCheck(t) },
+		CheckDestroy:             acctests.CheckTwingateResourceDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testDatasourceTwingateConnectorsFilter(resourceName, test.RandomName(), connectorName, attr.FilterBySuffix, suffix),
+				Check: acctests.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(theDatasource, connectorsLen, "1"),
+					resource.TestCheckResourceAttr(theDatasource, connectorNamePath, connectorName),
+				),
+			},
+		},
+	})
+}
+
+func TestAccDatasourceTwingateConnectorsFilterByContains(t *testing.T) {
+	t.Parallel()
+
+	connectorName := test.RandomConnectorName()
+	contains := connectorName[len(connectorName)/2 : len(connectorName)/2+5]
+	resourceName := test.RandomResourceName()
+	theDatasource := "data.twingate_connectors." + resourceName
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: acctests.ProviderFactories,
+		PreCheck:                 func() { acctests.PreCheck(t) },
+		CheckDestroy:             acctests.CheckTwingateResourceDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testDatasourceTwingateConnectorsFilter(resourceName, test.RandomName(), connectorName, attr.FilterByContains, contains),
+				Check: acctests.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(theDatasource, connectorsLen, "1"),
+					resource.TestCheckResourceAttr(theDatasource, connectorNamePath, connectorName),
+				),
+			},
+		},
+	})
+}
+
+func TestAccDatasourceTwingateConnectorsFilterByRegexp(t *testing.T) {
+	t.Parallel()
+
+	connectorName := test.RandomConnectorName()
+	contains := connectorName[len(connectorName)/2 : len(connectorName)/2+5]
+	resourceName := test.RandomResourceName()
+	theDatasource := "data.twingate_connectors." + resourceName
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: acctests.ProviderFactories,
+		PreCheck:                 func() { acctests.PreCheck(t) },
+		CheckDestroy:             acctests.CheckTwingateResourceDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testDatasourceTwingateConnectorsFilter(resourceName, test.RandomName(), connectorName, attr.FilterByRegexp, fmt.Sprintf(".*%s.*", contains)),
+				Check: acctests.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(theDatasource, connectorsLen, "1"),
+					resource.TestCheckResourceAttr(theDatasource, connectorNamePath, connectorName),
+				),
+			},
+		},
+	})
 }

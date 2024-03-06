@@ -7,7 +7,7 @@ on:
   pull_request:
     branches:
       - main
-      - fix/update-acctests
+      - "hotfix/**"
     paths-ignore:
        - 'README.md'
 
@@ -16,7 +16,8 @@ on:
       - 'README.md'
     branches:
       - main
-      - fix/update-acctests
+      - fix/update-acctests-v2
+
 
 # Ensures only 1 action runs per PR and previous is canceled on new trigger
 concurrency:
@@ -126,7 +127,8 @@ jobs:
       fail-fast: false
       matrix:
         terraform:
-          - '1.3.*'
+          - '1.4.*'
+          - '1.5.*'
           - 'latest'
     steps:
 
