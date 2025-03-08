@@ -34,6 +34,18 @@ func RandomGroupName() string {
 	return RandomName("group")
 }
 
+func RandomNetworkName() string {
+	return RandomName("network")
+}
+
+func RandomUserName() string {
+	return RandomName("user")
+}
+
+func RandomServiceAccountName() string {
+	return RandomName("service_account")
+}
+
 func RandomName(names ...string) string {
 	return acctest.RandomWithPrefix(Prefix(names...))
 }
