@@ -3,93 +3,65 @@ package config
 import (
 	"fmt"
 	"github.com/Twingate/terraform-provider-twingate/v3/twingate/internal/attr"
+	"github.com/Twingate/terraform-provider-twingate/v3/twingate/internal/provider/resource"
 	"github.com/Twingate/terraform-provider-twingate/v3/twingate/internal/test"
-	"github.com/Twingate/terraform-provider-twingate/v3/twingate/internal/test/acctests"
-	"strings"
+	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 )
 
 type ResourceGroup struct {
-	ResourceName     string
-	Name             string
-	SecurityPolicyID *string
-
-	UserIDs        []string
-	userIDsEnabled bool
-
-	IsAuthoritative *bool
+	ProtoResource
 }
 
-func NewResourceGroup() *ResourceGroup {
-	return &ResourceGroup{
-		ResourceName: test.RandomResourceName(),
-		Name:         test.RandomGroupName(),
+func NewResourceGroup(values ...any) Resource {
+	res := &ResourceGroup{
+		ProtoResource: ProtoResource{
+			Name:     acctest.RandomWithPrefix("group"),
+			Type:     resource.TwingateGroup,
+			Required: make(map[string]Attribute),
+			Optional: make(map[string]Attribute),
+		},
 	}
+
+	return res.Set(append([]any{
+		attr.Name, test.RandomName(),
+	}, values...)...)
 }
 
-func (g *ResourceGroup) optionalAttributes() string {
-	var optional []string
-
-	if g.SecurityPolicyID != nil {
-		optional = append(optional, fmt.Sprintf(`security_policy_id = "%s"`, *g.SecurityPolicyID))
+func (r *ResourceGroup) Set(values ...any) Resource {
+	if len(values)%2 != 0 {
+		panic("Set requires key-value pairs")
 	}
 
-	if g.userIDsEnabled {
-		optional = append(optional, fmt.Sprintf(`user_ids = [%s]`, strings.Join(g.UserIDs, ", ")))
-	}
-
-	if g.IsAuthoritative != nil {
-		optional = append(optional, fmt.Sprintf(`is_authoritative = %v`, *g.IsAuthoritative))
-	}
-
-	return strings.Join(optional, "\n")
-}
-
-func (g *ResourceGroup) TerraformResource() string {
-	return acctests.TerraformGroup(g.ResourceName)
-}
-
-func (g *ResourceGroup) String() string {
-	return Nprintf(`
-	resource "twingate_group" "${terraform_resource}" {
-	  name = "${name}"
-
-	  ${optional_attributes}
-	}
-	`, map[string]any{
-		"terraform_resource":  g.ResourceName,
-		"name":                g.Name,
-		"optional_attributes": g.optionalAttributes(),
-	})
-}
-
-func (g *ResourceGroup) Set(values ...any) *ResourceGroup {
 	for i := 0; i < len(values); i += 2 {
 		key := values[i].(string)
 		val := values[i+1]
 
 		switch key {
 		case attr.Name:
-			g.Name = val.(string)
+			r.Required[key] = NewStringAttribute(key, val)
+
 		case attr.SecurityPolicyID:
-			g.SecurityPolicyID = optionalString(val)
+			r.Optional[key] = NewStringAttribute(key, val)
 		case attr.UserIDs:
-			g.UserIDs = val.([]string)
-			g.userIDsEnabled = len(g.UserIDs) > 0
+			r.Optional[key] = NewSetAttribute(key, val.([]string))
 		case attr.IsAuthoritative:
-			g.IsAuthoritative = optionalBool(val)
+			r.Optional[key] = NewAttribute(key, fmt.Sprintf("%v", val.(bool)))
 		}
+
 	}
 
-	return g
+	return r
 }
 
-func configGroup(groupResource, name string) string {
-	return Nprintf(`
-	resource "twingate_group" "${group_resource}" {
-	  name = "${name}"
-	}
-	`, map[string]any{
-		"group_resource": groupResource,
-		"name":           name,
-	})
-}
+//func (r *ResourceGroup) Delete(attributes ...string) Resource {
+//	r.ProtoResource.Delete(attributes...)
+//
+//	//for _, key := range attributes {
+//	//	switch key {
+//	//	case attr.SecurityPolicyID, attr.UserIDs, attr.IsAuthoritative:
+//	//		delete(r.Optional, key)
+//	//	}
+//	//}
+//
+//	return r
+//}

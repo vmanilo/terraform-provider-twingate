@@ -2,45 +2,35 @@ package config
 
 import (
 	"github.com/Twingate/terraform-provider-twingate/v3/twingate/internal/attr"
-	"github.com/Twingate/terraform-provider-twingate/v3/twingate/internal/test"
-	"github.com/Twingate/terraform-provider-twingate/v3/twingate/internal/test/acctests"
+	"github.com/Twingate/terraform-provider-twingate/v3/twingate/internal/provider/resource"
+	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 )
 
 type ResourceConnectorToken struct {
-	ResourceName string
-	ConnectorID  string
+	ProtoResource
 }
 
-func NewResourceConnectorToken(connectorID string) *ResourceConnectorToken {
-	return &ResourceConnectorToken{
-		ResourceName: test.RandomResourceName(),
-		ConnectorID:  connectorID,
+func NewResourceConnectorToken(values ...any) Resource {
+	res := &ResourceConnectorToken{
+		ProtoResource: ProtoResource{
+			Name:     acctest.RandomWithPrefix("connector_tokens"),
+			Type:     resource.TwingateConnectorTokens,
+			Required: make(map[string]Attribute),
+			Optional: make(map[string]Attribute),
+		},
 	}
+
+	return res.Set(values...)
 }
 
-func (r *ResourceConnectorToken) TerraformResource() string {
-	return acctests.TerraformConnectorTokens(r.ResourceName)
-}
-
-func (r *ResourceConnectorToken) String() string {
-	return Nprintf(`
-	resource "twingate_connector_tokens" "${terraform_resource}" {
-	  connector_id = ${connector_id}
-	}
-	`, map[string]any{
-		"terraform_resource": r.ResourceName,
-		"connector_id":       r.ConnectorID,
-	})
-}
-
-func (r *ResourceConnectorToken) Set(values ...any) *ResourceConnectorToken {
+func (r *ResourceConnectorToken) Set(values ...any) Resource {
 	for i := 0; i < len(values); i += 2 {
 		key := values[i].(string)
 		val := values[i+1]
 
 		switch key {
 		case attr.ConnectorID:
-			r.ConnectorID = val.(string)
+			r.Required[key] = NewAttribute(key, val.(string))
 		}
 	}
 

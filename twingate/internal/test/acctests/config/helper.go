@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"github.com/Twingate/terraform-provider-twingate/v3/twingate/internal/utils"
 	"strings"
 )
 
@@ -19,16 +20,6 @@ func Nprintf(format string, params map[string]interface{}) string {
 
 type TerraformResource interface {
 	TerraformResource() string
-}
-
-func collectResourceIDs[T TerraformResource](resources ...T) []string {
-	ids := make([]string, 0, len(resources))
-
-	for _, res := range resources {
-		ids = append(ids, res.TerraformResource()+".id")
-	}
-
-	return ids
 }
 
 func optionalInt(val any) *int {
@@ -74,4 +65,20 @@ func optionalBool(val any) *bool {
 	default:
 		return nil
 	}
+}
+
+func GenUsers(count int) []Resource {
+	users := make([]Resource, 0, count)
+
+	for i := 0; i < count; i++ {
+		users = append(users, NewResourceUser())
+	}
+
+	return users
+}
+
+func ResourceIDs(resources []Resource) []string {
+	return utils.Map(resources, func(r Resource) string {
+		return r.TerraformResourceID()
+	})
 }

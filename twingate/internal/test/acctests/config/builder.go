@@ -13,8 +13,8 @@ func Builder(resources ...any) string {
 		switch t := r.(type) {
 		case fmt.Stringer:
 			list = append(list, t)
-		case []*ResourceUser:
-			list = append(list, utils.Map(t, func(item *ResourceUser) fmt.Stringer {
+		case []Resource:
+			list = append(list, utils.Map(t, func(item Resource) fmt.Stringer {
 				return item
 			})...)
 		}

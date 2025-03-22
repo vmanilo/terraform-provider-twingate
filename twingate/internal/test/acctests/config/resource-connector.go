@@ -3,75 +3,57 @@ package config
 import (
 	"fmt"
 	"github.com/Twingate/terraform-provider-twingate/v3/twingate/internal/attr"
-	"github.com/Twingate/terraform-provider-twingate/v3/twingate/internal/test"
-	"github.com/Twingate/terraform-provider-twingate/v3/twingate/internal/test/acctests"
-	"strings"
+	"github.com/Twingate/terraform-provider-twingate/v3/twingate/internal/provider/resource"
+	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 )
 
 type ResourceConnector struct {
-	ResourceName         string
-	RemoteNetworkID      string
-	Name                 *string
-	StatusUpdatesEnabled *bool
+	ProtoResource
 }
 
-func NewResourceConnector(remoteNetworkID string) *ResourceConnector {
-	return &ResourceConnector{
-		ResourceName:    test.RandomResourceName(),
-		RemoteNetworkID: remoteNetworkID,
-	}
-}
-
-func (r *ResourceConnector) optionalAttributes() string {
-	var optional []string
-
-	if r.Name != nil {
-		optional = append(optional, fmt.Sprintf(`name = "%s"`, *r.Name))
+func NewResourceConnector(values ...any) Resource {
+	res := &ResourceConnector{
+		ProtoResource: ProtoResource{
+			Name:     acctest.RandomWithPrefix("connector"),
+			Type:     resource.TwingateConnector,
+			Required: make(map[string]Attribute),
+			Optional: make(map[string]Attribute),
+		},
 	}
 
-	if r.StatusUpdatesEnabled != nil {
-		optional = append(optional, fmt.Sprintf(`status_updates_enabled = %v`, *r.StatusUpdatesEnabled))
+	return res.Set(values...)
+}
+
+func (r *ResourceConnector) Set(values ...any) Resource {
+	if len(values)%2 != 0 {
+		panic("Set requires key-value pairs")
 	}
 
-	return strings.Join(optional, "\n")
-}
-
-func (r *ResourceConnector) TerraformResource() string {
-	return acctests.TerraformConnector(r.ResourceName)
-}
-
-func (r *ResourceConnector) TerraformResourceID() string {
-	return r.TerraformResource() + ".id"
-}
-
-func (r *ResourceConnector) String() string {
-	return Nprintf(`
-	resource "twingate_connector" "${terraform_resource}" {
-	  remote_network_id = ${remote_network_id}
-
-	  ${optional_attributes}
-	}
-	`, map[string]any{
-		"terraform_resource":  r.ResourceName,
-		"remote_network_id":   r.RemoteNetworkID,
-		"optional_attributes": r.optionalAttributes(),
-	})
-}
-
-func (r *ResourceConnector) Set(values ...any) *ResourceConnector {
 	for i := 0; i < len(values); i += 2 {
 		key := values[i].(string)
 		val := values[i+1]
 
 		switch key {
 		case attr.Name:
-			r.Name = optionalString(val)
+			r.Required[key] = NewStringAttribute(key, val)
 		case attr.RemoteNetworkID:
-			r.RemoteNetworkID = val.(string)
+			r.Required[key] = NewAttribute(key, val)
 		case attr.StatusUpdatesEnabled:
-			r.StatusUpdatesEnabled = optionalBool(val)
+			r.Optional[key] = NewAttribute(key, fmt.Sprintf("%v", val.(bool)))
 		}
+
 	}
 
 	return r
 }
+
+//func (r *ResourceConnector) Delete(attributes ...string) Resource {
+//	for _, key := range attributes {
+//		switch key {
+//		case attr.StatusUpdatesEnabled:
+//			delete(r.Optional, key)
+//		}
+//	}
+//
+//	return r
+//}

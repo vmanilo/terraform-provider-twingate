@@ -1,7 +1,7 @@
 package resource
 
 import (
-	"fmt"
+	"github.com/Twingate/terraform-provider-twingate/v3/twingate/internal/test/acctests/config"
 	"regexp"
 	"testing"
 
@@ -17,12 +17,12 @@ import (
 func TestAccTwingateUserCreateUpdate(t *testing.T) {
 	t.Parallel()
 
-	const terraformResourceName = "test001"
-	theResource := acctests.TerraformUser(terraformResourceName)
 	email := test.RandomEmail()
 	firstName := test.RandomName()
 	lastName := test.RandomName()
 	role := model.UserRoleSupport
+	user := config.NewResourceUser(attr.Email, email)
+	theResource := user.TerraformResource()
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -30,14 +30,14 @@ func TestAccTwingateUserCreateUpdate(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateUserDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: terraformResourceTwingateUser(terraformResourceName, email),
+				Config: config.Builder(user),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					sdk.TestCheckResourceAttr(theResource, attr.Email, email),
 				),
 			},
 			{
-				Config: terraformResourceTwingateUserWithFirstName(terraformResourceName, email, firstName),
+				Config: config.Builder(user.Set(attr.FirstName, firstName)),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					sdk.TestCheckResourceAttr(theResource, attr.Email, email),
@@ -45,7 +45,7 @@ func TestAccTwingateUserCreateUpdate(t *testing.T) {
 				),
 			},
 			{
-				Config: terraformResourceTwingateUserWithLastName(terraformResourceName, email, lastName),
+				Config: config.Builder(user.Set(attr.LastName, lastName)),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					sdk.TestCheckResourceAttr(theResource, attr.Email, email),
@@ -54,7 +54,7 @@ func TestAccTwingateUserCreateUpdate(t *testing.T) {
 				),
 			},
 			{
-				Config: terraformResourceTwingateUserWithRole(terraformResourceName, email, role),
+				Config: config.Builder(user.Set(attr.Role, role)),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					sdk.TestCheckResourceAttr(theResource, attr.Email, email),
@@ -65,56 +65,17 @@ func TestAccTwingateUserCreateUpdate(t *testing.T) {
 			},
 		},
 	})
-}
-
-func terraformResourceTwingateUser(terraformResourceName, email string) string {
-	return fmt.Sprintf(`
-	resource "twingate_user" "%s" {
-	  email = "%s"
-	  send_invite = false
-	}
-	`, terraformResourceName, email)
-}
-
-func terraformResourceTwingateUserWithFirstName(terraformResourceName, email, firstName string) string {
-	return fmt.Sprintf(`
-	resource "twingate_user" "%s" {
-	  email = "%s"
-	  first_name = "%s"
-	  send_invite = false
-	}
-	`, terraformResourceName, email, firstName)
-}
-
-func terraformResourceTwingateUserWithLastName(terraformResourceName, email, lastName string) string {
-	return fmt.Sprintf(`
-	resource "twingate_user" "%s" {
-	  email = "%s"
-	  last_name = "%s"
-	  send_invite = false
-	}
-	`, terraformResourceName, email, lastName)
-}
-
-func terraformResourceTwingateUserWithRole(terraformResourceName, email, role string) string {
-	return fmt.Sprintf(`
-	resource "twingate_user" "%s" {
-	  email = "%s"
-	  role = "%s"
-	  send_invite = false
-	}
-	`, terraformResourceName, email, role)
 }
 
 func TestAccTwingateUserFullCreate(t *testing.T) {
 	t.Parallel()
 
-	const terraformResourceName = "test002"
-	theResource := acctests.TerraformUser(terraformResourceName)
 	email := test.RandomEmail()
 	firstName := test.RandomName()
 	lastName := test.RandomName()
 	role := test.RandomUserRole()
+	user := config.NewResourceUser(attr.Email, email, attr.FirstName, firstName, attr.LastName, lastName, attr.Role, role)
+	theResource := user.TerraformResource()
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -122,7 +83,7 @@ func TestAccTwingateUserFullCreate(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateUserDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: terraformResourceTwingateUserFull(terraformResourceName, email, firstName, lastName, role),
+				Config: config.Builder(user),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					sdk.TestCheckResourceAttr(theResource, attr.Email, email),
@@ -135,25 +96,13 @@ func TestAccTwingateUserFullCreate(t *testing.T) {
 	})
 }
 
-func terraformResourceTwingateUserFull(terraformResourceName, email, firstName, lastName, role string) string {
-	return fmt.Sprintf(`
-	resource "twingate_user" "%s" {
-	  email = "%s"
-	  first_name = "%s"
-	  last_name = "%s"
-	  role = "%s"
-	  send_invite = false
-	}
-	`, terraformResourceName, email, firstName, lastName, role)
-}
-
 func TestAccTwingateUserReCreation(t *testing.T) {
 	t.Parallel()
 
-	const terraformResourceName = "test003"
-	theResource := acctests.TerraformUser(terraformResourceName)
 	email1 := test.RandomEmail()
 	email2 := test.RandomEmail()
+	user := config.NewResourceUser()
+	theResource := user.TerraformResource()
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -161,14 +110,14 @@ func TestAccTwingateUserReCreation(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateUserDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: terraformResourceTwingateUser(terraformResourceName, email1),
+				Config: config.Builder(user.Set(attr.Email, email1)),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					sdk.TestCheckResourceAttr(theResource, attr.Email, email1),
 				),
 			},
 			{
-				Config: terraformResourceTwingateUser(terraformResourceName, email2),
+				Config: config.Builder(user.Set(attr.Email, email2)),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					sdk.TestCheckResourceAttr(theResource, attr.Email, email2),
@@ -181,9 +130,9 @@ func TestAccTwingateUserReCreation(t *testing.T) {
 func TestAccTwingateUserUpdateState(t *testing.T) {
 	t.Parallel()
 
-	const terraformResourceName = "test004"
-	theResource := acctests.TerraformUser(terraformResourceName)
 	email := test.RandomEmail()
+	user := config.NewResourceUser(attr.Email, email)
+	theResource := user.TerraformResource()
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -191,36 +140,25 @@ func TestAccTwingateUserUpdateState(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateUserDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: terraformResourceTwingateUser(terraformResourceName, email),
+				Config: config.Builder(user),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					sdk.TestCheckResourceAttr(theResource, attr.Email, email),
 				),
 			},
 			{
-				Config:      terraformResourceTwingateUserDisabled(terraformResourceName, email),
+				Config:      config.Builder(user.Set(attr.IsActive, false)),
 				ExpectError: regexp.MustCompile(`User in PENDING state`),
 			},
 		},
 	})
 }
 
-func terraformResourceTwingateUserDisabled(terraformResourceName, email string) string {
-	return fmt.Sprintf(`
-	resource "twingate_user" "%s" {
-	  email = "%s"
-	  send_invite = false
-	  is_active = false
-	}
-	`, terraformResourceName, email)
-}
-
 func TestAccTwingateUserDelete(t *testing.T) {
 	t.Parallel()
 
-	const terraformResourceName = "test005"
-	theResource := acctests.TerraformUser(terraformResourceName)
-	userEmail := test.RandomEmail()
+	user := config.NewResourceUser()
+	theResource := user.TerraformResource()
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -228,11 +166,11 @@ func TestAccTwingateUserDelete(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateUserDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config:  terraformResourceTwingateUser(terraformResourceName, userEmail),
+				Config:  config.Builder(user),
 				Destroy: true,
 			},
 			{
-				Config: terraformResourceTwingateUser(terraformResourceName, userEmail),
+				Config: config.Builder(user),
 				ConfigPlanChecks: sdk.ConfigPlanChecks{
 					PreApply: []plancheck.PlanCheck{
 						plancheck.ExpectResourceAction(theResource, plancheck.ResourceActionCreate),
@@ -246,9 +184,8 @@ func TestAccTwingateUserDelete(t *testing.T) {
 func TestAccTwingateUserReCreateAfterDeletion(t *testing.T) {
 	t.Parallel()
 
-	const terraformResourceName = "test006"
-	theResource := acctests.TerraformUser(terraformResourceName)
-	email := test.RandomEmail()
+	user := config.NewResourceUser()
+	theResource := user.TerraformResource()
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -256,7 +193,7 @@ func TestAccTwingateUserReCreateAfterDeletion(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateUserDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config: terraformResourceTwingateUser(terraformResourceName, email),
+				Config: config.Builder(user),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					acctests.DeleteTwingateResource(theResource, resource.TwingateUser),
@@ -264,7 +201,7 @@ func TestAccTwingateUserReCreateAfterDeletion(t *testing.T) {
 				ExpectNonEmptyPlan: true,
 			},
 			{
-				Config: terraformResourceTwingateUser(terraformResourceName, email),
+				Config: config.Builder(user),
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 				),
@@ -276,7 +213,7 @@ func TestAccTwingateUserReCreateAfterDeletion(t *testing.T) {
 func TestAccTwingateUserCreateWithUnknownRole(t *testing.T) {
 	t.Parallel()
 
-	const terraformResourceName = "test007"
+	user := config.NewResourceUser(attr.Role, "UnknownRole")
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -284,7 +221,7 @@ func TestAccTwingateUserCreateWithUnknownRole(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateUserDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config:      terraformResourceTwingateUserWithRole(terraformResourceName, test.RandomEmail(), "UnknownRole"),
+				Config:      config.Builder(user),
 				ExpectError: regexp.MustCompile(`Attribute role value must be one of`),
 			},
 		},
@@ -294,38 +231,19 @@ func TestAccTwingateUserCreateWithUnknownRole(t *testing.T) {
 func TestAccTwingateUserCreateWithoutEmail(t *testing.T) {
 	t.Parallel()
 
-	const terraformResourceName = "test008"
-
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
 		PreCheck:                 func() { acctests.PreCheck(t) },
 		CheckDestroy:             acctests.CheckTwingateUserDestroy,
 		Steps: []sdk.TestStep{
 			{
-				Config:      terraformResourceTwingateUserWithoutEmail(terraformResourceName),
+				Config: `
+					resource "twingate_user" "invalid_user" {
+					  send_invite = false
+					}
+				`,
 				ExpectError: regexp.MustCompile("Error: Missing required argument"),
 			},
 		},
 	})
-}
-
-func terraformResourceTwingateUserWithoutEmail(terraformResourceName string) string {
-	return fmt.Sprintf(`
-	resource "twingate_user" "%s" {
-	  send_invite = false
-	}
-	`, terraformResourceName)
-}
-
-func genNewUsers(resourcePrefix string, count int) ([]string, []string) {
-	users := make([]string, 0, count)
-	userIDs := make([]string, 0, count)
-
-	for i := 0; i < count; i++ {
-		resourceName := fmt.Sprintf("%s_%d", resourcePrefix, i+1)
-		users = append(users, terraformResourceTwingateUser(resourceName, test.RandomEmail()))
-		userIDs = append(userIDs, fmt.Sprintf("twingate_user.%s.id", resourceName))
-	}
-
-	return users, userIDs
 }

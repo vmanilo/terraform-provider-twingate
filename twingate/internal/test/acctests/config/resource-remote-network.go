@@ -1,71 +1,62 @@
 package config
 
 import (
-	"fmt"
 	"github.com/Twingate/terraform-provider-twingate/v3/twingate/internal/attr"
+	"github.com/Twingate/terraform-provider-twingate/v3/twingate/internal/provider/resource"
 	"github.com/Twingate/terraform-provider-twingate/v3/twingate/internal/test"
-	"github.com/Twingate/terraform-provider-twingate/v3/twingate/internal/test/acctests"
-	"strings"
+	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 )
 
 type ResourceRemoteNetwork struct {
-	ResourceName string
-	Name         string
-	Location     *string
+	ProtoResource
 }
 
-func NewResourceRemoteNetwork() *ResourceRemoteNetwork {
-	return &ResourceRemoteNetwork{
-		ResourceName: test.RandomResourceName(),
-		Name:         test.RandomNetworkName(),
-	}
-}
-
-func (r *ResourceRemoteNetwork) optionalAttributes() string {
-	var optional []string
-
-	if r.Location != nil {
-		optional = append(optional, fmt.Sprintf(`location = "%s"`, *r.Location))
+func NewResourceRemoteNetwork(values ...any) Resource {
+	res := &ResourceRemoteNetwork{
+		ProtoResource: ProtoResource{
+			Name:     acctest.RandomWithPrefix("remote_network"),
+			Type:     resource.TwingateRemoteNetwork,
+			Required: make(map[string]Attribute),
+			Optional: make(map[string]Attribute),
+		},
 	}
 
-	return strings.Join(optional, "\n")
+	return res.Set(append([]any{
+		attr.Name, test.RandomName(),
+	}, values...)...)
 }
 
-func (r *ResourceRemoteNetwork) TerraformResource() string {
-	return acctests.TerraformRemoteNetwork(r.ResourceName)
-}
-
-func (r *ResourceRemoteNetwork) TerraformResourceID() string {
-	return r.TerraformResource() + ".id"
-}
-
-func (r *ResourceRemoteNetwork) String() string {
-	return Nprintf(`
-	resource "twingate_remote_network" "${terraform_resource}" {
-	  name = "${name}"
-
-
-	  ${optional_attributes}
+func (r *ResourceRemoteNetwork) Set(values ...any) Resource {
+	if len(values)%2 != 0 {
+		panic("Set requires key-value pairs")
 	}
-	`, map[string]any{
-		"terraform_resource":  r.ResourceName,
-		"name":                r.Name,
-		"optional_attributes": r.optionalAttributes(),
-	})
-}
 
-func (r *ResourceRemoteNetwork) Set(values ...any) *ResourceRemoteNetwork {
 	for i := 0; i < len(values); i += 2 {
 		key := values[i].(string)
 		val := values[i+1]
 
 		switch key {
 		case attr.Name:
-			r.Name = val.(string)
+			r.Required[key] = NewStringAttribute(key, val)
+
 		case attr.Location:
-			r.Location = optionalString(val)
+			r.Optional[key] = NewStringAttribute(key, val)
+		case attr.Type:
+			r.Optional[key] = NewStringAttribute(key, val)
 		}
+
 	}
 
 	return r
 }
+
+//func (r *ResourceRemoteNetwork) Delete(attributes ...string) Resource {
+//	for _, key := range attributes {
+//		switch key {
+//		case attr.Location, attr.Type:
+//			delete(r.Optional, key)
+//		}
+//	}
+//
+//	return r
+//}

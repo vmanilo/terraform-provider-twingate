@@ -2,10 +2,10 @@ package resource
 
 import (
 	"fmt"
+	"github.com/Twingate/terraform-provider-twingate/v3/twingate/internal/test/acctests/config"
 	"testing"
 
 	"github.com/Twingate/terraform-provider-twingate/v3/twingate/internal/attr"
-	"github.com/Twingate/terraform-provider-twingate/v3/twingate/internal/test"
 	"github.com/Twingate/terraform-provider-twingate/v3/twingate/internal/test/acctests"
 	sdk "github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
@@ -14,9 +14,10 @@ import (
 func TestAccRemoteConnectorWithTokens(t *testing.T) {
 	t.Parallel()
 
-	const terraformResourceName = "test_t1"
-	theResource := acctests.TerraformConnectorTokens(terraformResourceName)
-	remoteNetworkName := test.RandomName()
+	network := config.NewResourceRemoteNetwork()
+	connector := config.NewResourceConnector(attr.RemoteNetworkID, network.TerraformResourceID())
+	connectorTokens := config.NewResourceConnectorToken(attr.ConnectorID, connector.TerraformResourceID())
+	theResource := connectorTokens.TerraformResource()
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -24,26 +25,13 @@ func TestAccRemoteConnectorWithTokens(t *testing.T) {
 		CheckDestroy:             acctests.CheckTwingateConnectorTokensInvalidated,
 		Steps: []sdk.TestStep{
 			{
-				Config: terraformResourceTwingateConnectorTokens(terraformResourceName, remoteNetworkName),
+				Config: config.Builder(network, connector, connectorTokens),
 				Check: acctests.ComposeTestCheckFunc(
 					checkTwingateConnectorTokensSet(theResource),
 				),
 			},
 		},
 	})
-}
-
-func terraformResourceTwingateConnectorTokens(terraformResourceName, remoteNetworkName string) string {
-	return fmt.Sprintf(`
-	%s
-
-	resource "twingate_connector_tokens" "%s" {
-	  connector_id = twingate_connector.%s.id
-      keepers = {
-         foo = "bar"
-      }
-	}
-	`, terraformResourceTwingateConnector(terraformResourceName, terraformResourceName, remoteNetworkName), terraformResourceName, terraformResourceName)
 }
 
 func checkTwingateConnectorTokensSet(connectorNameTokens string) sdk.TestCheckFunc {
