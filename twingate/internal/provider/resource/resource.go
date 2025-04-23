@@ -180,6 +180,14 @@ func (r *twingateResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 				Description: "The `tags` attribute consists of a key-value pairs that correspond with tags to be set on the resource.",
 				Default:     mapdefault.StaticValue(types.MapNull(types.StringType)),
 			},
+			attr.UsageBasedAutolockDurationDays: schema.Int64Attribute{
+				Optional:    true,
+				Computed:    true,
+				Description: "The usage-based auto-lock duration for the Resource (in days).",
+				PlanModifiers: []planmodifier.Int64{
+					UseNullIntWhenValueOmitted(),
+				},
+			},
 			// computed
 			attr.SecurityPolicyID: schema.StringAttribute{
 				Optional:      true,
