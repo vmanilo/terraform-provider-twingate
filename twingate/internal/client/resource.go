@@ -106,6 +106,7 @@ func (client *Client) CreateResource(ctx context.Context, input *model.Resource)
 		gqlNullableID(input.SecurityPolicyID, "securityPolicyId"),
 		gqlVar(NewAccessApprovalMode(input.ApprovalMode), "approvalMode"),
 		gqlVar(newTagInputs(input.Tags), "tags"),
+		gqlNullable(input.UsageBasedAutolockDurationDays, "usageBasedAutolockDurationDays"),
 		cursor(query.CursorAccess),
 		pageLimit(client.pageLimit),
 	)
@@ -291,6 +292,7 @@ func (client *Client) UpdateResource(ctx context.Context, input *model.Resource)
 		gqlNullableID(input.SecurityPolicyID, "securityPolicyId"),
 		gqlVar(NewAccessApprovalMode(input.ApprovalMode), "approvalMode"),
 		gqlVar(newTagInputs(input.Tags), "tags"),
+		gqlNullable(input.UsageBasedAutolockDurationDays, "usageBasedAutolockDurationDays"),
 		cursor(query.CursorAccess),
 		pageLimit(client.pageLimit),
 	)

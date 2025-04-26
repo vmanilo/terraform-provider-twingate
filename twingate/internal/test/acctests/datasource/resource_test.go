@@ -31,6 +31,7 @@ func TestAccDatasourceTwingateResource_basic(t *testing.T) {
 					resource.TestCheckResourceAttr("data.twingate_resource.out_dr1", attr.Name, resourceName),
 					resource.TestCheckResourceAttr("data.twingate_resource.out_dr1", attr.ApprovalMode, model.ApprovalModeManual),
 					resource.TestCheckResourceAttr("data.twingate_resource.out_dr1", attr.PathAttr(attr.Tags, "owner"), "example_owner"),
+					resource.TestCheckResourceAttr("data.twingate_resource.out_dr1", attr.UsageBasedAutolockDurationDays, "10"),
 				),
 			},
 		},
@@ -62,6 +63,8 @@ func testDatasourceTwingateResource(networkName, resourceName string) string {
 	  tags = {
 	    owner = "example_owner"
 	  }
+	  
+	  usage_based_autolock_duration_days = 10
 	}
 
 	data "twingate_resource" "out_dr1" {

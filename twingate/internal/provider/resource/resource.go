@@ -63,21 +63,22 @@ type twingateResource struct {
 }
 
 type resourceModel struct {
-	ID                       types.String `tfsdk:"id"`
-	Name                     types.String `tfsdk:"name"`
-	Address                  types.String `tfsdk:"address"`
-	RemoteNetworkID          types.String `tfsdk:"remote_network_id"`
-	IsAuthoritative          types.Bool   `tfsdk:"is_authoritative"`
-	Protocols                types.Object `tfsdk:"protocols"`
-	GroupAccess              types.Set    `tfsdk:"access_group"`
-	ServiceAccess            types.Set    `tfsdk:"access_service"`
-	IsActive                 types.Bool   `tfsdk:"is_active"`
-	IsVisible                types.Bool   `tfsdk:"is_visible"`
-	IsBrowserShortcutEnabled types.Bool   `tfsdk:"is_browser_shortcut_enabled"`
-	Alias                    types.String `tfsdk:"alias"`
-	SecurityPolicyID         types.String `tfsdk:"security_policy_id"`
-	ApprovalMode             types.String `tfsdk:"approval_mode"`
-	Tags                     types.Map    `tfsdk:"tags"`
+	ID                             types.String `tfsdk:"id"`
+	Name                           types.String `tfsdk:"name"`
+	Address                        types.String `tfsdk:"address"`
+	RemoteNetworkID                types.String `tfsdk:"remote_network_id"`
+	IsAuthoritative                types.Bool   `tfsdk:"is_authoritative"`
+	Protocols                      types.Object `tfsdk:"protocols"`
+	GroupAccess                    types.Set    `tfsdk:"access_group"`
+	ServiceAccess                  types.Set    `tfsdk:"access_service"`
+	IsActive                       types.Bool   `tfsdk:"is_active"`
+	IsVisible                      types.Bool   `tfsdk:"is_visible"`
+	IsBrowserShortcutEnabled       types.Bool   `tfsdk:"is_browser_shortcut_enabled"`
+	Alias                          types.String `tfsdk:"alias"`
+	SecurityPolicyID               types.String `tfsdk:"security_policy_id"`
+	ApprovalMode                   types.String `tfsdk:"approval_mode"`
+	Tags                           types.Map    `tfsdk:"tags"`
+	UsageBasedAutolockDurationDays types.Int64  `tfsdk:"usage_based_autolock_duration_days"`
 }
 
 func (r *twingateResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -631,20 +632,21 @@ func convertResource(plan *resourceModel) (*model.Resource, error) {
 	}
 
 	return &model.Resource{
-		Name:                     plan.Name.ValueString(),
-		RemoteNetworkID:          plan.RemoteNetworkID.ValueString(),
-		Address:                  plan.Address.ValueString(),
-		Protocols:                protocols,
-		GroupsAccess:             accessGroups,
-		ServiceAccounts:          serviceAccountIDs,
-		IsActive:                 plan.IsActive.ValueBool(),
-		IsAuthoritative:          convertAuthoritativeFlag(plan.IsAuthoritative),
-		Alias:                    getOptionalString(plan.Alias),
-		IsVisible:                getOptionalBool(plan.IsVisible),
-		IsBrowserShortcutEnabled: isBrowserShortcutEnabled,
-		SecurityPolicyID:         plan.SecurityPolicyID.ValueStringPointer(),
-		ApprovalMode:             plan.ApprovalMode.ValueString(),
-		Tags:                     getTags(plan.Tags),
+		Name:                           plan.Name.ValueString(),
+		RemoteNetworkID:                plan.RemoteNetworkID.ValueString(),
+		Address:                        plan.Address.ValueString(),
+		Protocols:                      protocols,
+		GroupsAccess:                   accessGroups,
+		ServiceAccounts:                serviceAccountIDs,
+		IsActive:                       plan.IsActive.ValueBool(),
+		IsAuthoritative:                convertAuthoritativeFlag(plan.IsAuthoritative),
+		Alias:                          getOptionalString(plan.Alias),
+		IsVisible:                      getOptionalBool(plan.IsVisible),
+		IsBrowserShortcutEnabled:       isBrowserShortcutEnabled,
+		SecurityPolicyID:               plan.SecurityPolicyID.ValueStringPointer(),
+		ApprovalMode:                   plan.ApprovalMode.ValueString(),
+		Tags:                           getTags(plan.Tags),
+		UsageBasedAutolockDurationDays: plan.UsageBasedAutolockDurationDays.ValueInt64Pointer(),
 	}, nil
 }
 
@@ -935,7 +937,8 @@ func isResourceChanged(plan, state *resourceModel) bool {
 		!plan.Alias.Equal(state.Alias) ||
 		!plan.SecurityPolicyID.Equal(state.SecurityPolicyID) ||
 		!plan.ApprovalMode.Equal(state.ApprovalMode) ||
-		!plan.Tags.Equal(state.Tags)
+		!plan.Tags.Equal(state.Tags) ||
+		!plan.UsageBasedAutolockDurationDays.Equal(state.UsageBasedAutolockDurationDays)
 }
 
 func (r *twingateResource) updateResourceAccess(ctx context.Context, plan, state *resourceModel, input *model.Resource) error {
@@ -1081,6 +1084,10 @@ func setState(ctx context.Context, state, reference *resourceModel, resource *mo
 
 	if !state.ApprovalMode.IsNull() || !reference.ApprovalMode.IsUnknown() {
 		state.ApprovalMode = reference.ApprovalMode
+	}
+
+	if !state.UsageBasedAutolockDurationDays.IsNull() || !reference.UsageBasedAutolockDurationDays.IsUnknown() {
+		state.UsageBasedAutolockDurationDays = reference.UsageBasedAutolockDurationDays
 	}
 
 	if !state.Protocols.IsNull() || !reference.Protocols.IsUnknown() {

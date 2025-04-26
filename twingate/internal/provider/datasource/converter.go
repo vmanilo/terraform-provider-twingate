@@ -44,13 +44,14 @@ func convertResourcesToTerraform(resources []*model.Resource) []resourceModel {
 		}
 
 		return resourceModel{
-			ID:              types.StringValue(resource.ID),
-			Name:            types.StringValue(resource.Name),
-			Address:         types.StringValue(resource.Address),
-			RemoteNetworkID: types.StringValue(resource.RemoteNetworkID),
-			ApprovalMode:    approvalMode,
-			Protocols:       convertProtocolsToTerraform(resource.Protocols),
-			Tags:            tags,
+			ID:                             types.StringValue(resource.ID),
+			Name:                           types.StringValue(resource.Name),
+			Address:                        types.StringValue(resource.Address),
+			RemoteNetworkID:                types.StringValue(resource.RemoteNetworkID),
+			ApprovalMode:                   approvalMode,
+			Protocols:                      convertProtocolsToTerraform(resource.Protocols),
+			Tags:                           tags,
+			UsageBasedAutolockDurationDays: types.Int64PointerValue(resource.UsageBasedAutolockDurationDays),
 		}
 	})
 }

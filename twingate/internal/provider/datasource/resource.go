@@ -3,7 +3,6 @@ package datasource
 import (
 	"context"
 	"fmt"
-
 	"github.com/Twingate/terraform-provider-twingate/v3/twingate/internal/attr"
 	"github.com/Twingate/terraform-provider-twingate/v3/twingate/internal/client"
 	"github.com/Twingate/terraform-provider-twingate/v3/twingate/internal/model"
@@ -105,10 +104,18 @@ func (d *resource) Schema(ctx context.Context, req datasource.SchemaRequest, res
 				Computed:    true,
 				Description: "The Remote Network ID that the Resource is associated with. Resources may only be associated with a single Remote Network.",
 			},
+			attr.ApprovalMode: schema.StringAttribute{
+				Computed:    true,
+				Description: fmt.Sprintf("The Approval Mode of the Resource. The valid values are `%s` and `%s`.", model.ApprovalModeAutomatic, model.ApprovalModeManual),
+			},
 			attr.Tags: schema.MapAttribute{
 				ElementType: types.StringType,
 				Computed:    true,
 				Description: "The `tags` attribute consists of a key-value pairs that correspond with tags to be set on the resource.",
+			},
+			attr.UsageBasedAutolockDurationDays: schema.Int64Attribute{
+				Computed:    true,
+				Description: "The number of days that the Resource will be locked after the last successful login.",
 			},
 		},
 		Blocks: map[string]schema.Block{
@@ -149,6 +156,7 @@ func (d *resource) Read(ctx context.Context, req datasource.ReadRequest, resp *d
 	data.Name = types.StringValue(resource.Name)
 	data.Address = types.StringValue(resource.Address)
 	data.RemoteNetworkID = types.StringValue(resource.RemoteNetworkID)
+	data.ApprovalMode = types.StringValue(resource.ApprovalMode)
 	data.Protocols = convertProtocolsToTerraform(resource.Protocols)
 	tags, diags := convertTagsToTerraform(resource.Tags)
 
