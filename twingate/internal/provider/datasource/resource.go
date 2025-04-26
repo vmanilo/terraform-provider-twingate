@@ -159,6 +159,7 @@ func (d *resource) Read(ctx context.Context, req datasource.ReadRequest, resp *d
 	}
 
 	data.Tags = tags
+	data.UsageBasedAutolockDurationDays = types.Int64PointerValue(resource.UsageBasedAutolockDurationDays)
 
 	// Save data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
