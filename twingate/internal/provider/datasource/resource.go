@@ -3,6 +3,7 @@ package datasource
 import (
 	"context"
 	"fmt"
+
 	"github.com/Twingate/terraform-provider-twingate/v3/twingate/internal/attr"
 	"github.com/Twingate/terraform-provider-twingate/v3/twingate/internal/client"
 	"github.com/Twingate/terraform-provider-twingate/v3/twingate/internal/model"
@@ -69,7 +70,7 @@ func (d *resource) Configure(ctx context.Context, req datasource.ConfigureReques
 	d.client = client
 }
 
-func (d *resource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+func (d *resource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) { //nolint:funlen
 	protocolSchema := schema.SingleNestedBlock{
 		Attributes: map[string]schema.Attribute{
 			attr.Policy: schema.StringAttribute{

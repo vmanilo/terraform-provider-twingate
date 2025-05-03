@@ -103,6 +103,12 @@ func (r *twingateResource) ImportState(ctx context.Context, req resource.ImportS
 		return
 	}
 
+	if res.ApprovalMode != "" {
+		resp.State.SetAttribute(ctx, path.Root(attr.ApprovalMode), types.StringValue(res.ApprovalMode))
+	}
+
+	resp.State.SetAttribute(ctx, path.Root(attr.UsageBasedAutolockDurationDays), types.Int64PointerValue(res.UsageBasedAutolockDurationDays))
+
 	if res.Protocols != nil {
 		protocols, diags := convertProtocolsToTerraform(res.Protocols, nil)
 		resp.Diagnostics.Append(diags...)
@@ -473,14 +479,6 @@ func (r *twingateResource) Create(ctx context.Context, req resource.CreateReques
 
 		return
 	}
-
-	//if resource.UsageBasedAutolockDurationDays != nil {
-	//	for i, access := range resource.GroupsAccess {
-	//		if access.UsageBasedDuration == nil {
-	//			resource.GroupsAccess[i].UsageBasedDuration = resource.UsageBasedAutolockDurationDays
-	//		}
-	//	}
-	//}
 
 	if err = r.client.AddResourceAccess(ctx, resource.ID, convertResourceAccess(resource.ServiceAccounts, resource.GroupsAccess, resource.UsageBasedAutolockDurationDays)); err != nil {
 		addErr(&resp.Diagnostics, err, operationCreate, TwingateResource)
@@ -881,7 +879,8 @@ func (r *twingateResource) Update(ctx context.Context, req resource.UpdateReques
 	planSecurityPolicy := input.SecurityPolicyID
 	input.ID = state.ID.ValueString()
 
-	if !plan.GroupAccess.Equal(state.GroupAccess) || !plan.ServiceAccess.Equal(state.ServiceAccess) {
+	if !plan.GroupAccess.Equal(state.GroupAccess) || !plan.ServiceAccess.Equal(state.ServiceAccess) ||
+		!plan.UsageBasedAutolockDurationDays.Equal(state.UsageBasedAutolockDurationDays) {
 		if err := r.updateResourceAccess(ctx, &plan, &state, input); err != nil {
 			addErr(&resp.Diagnostics, err, operationUpdate, TwingateResource)
 
@@ -962,14 +961,6 @@ func (r *twingateResource) updateResourceAccess(ctx context.Context, plan, state
 
 	if err := r.client.RemoveResourceAccess(ctx, input.ID, idsToDelete); err != nil {
 		return fmt.Errorf("failed to update resource access: %w", err)
-	}
-
-	if input.UsageBasedAutolockDurationDays != nil {
-		for i, group := range groupsToAdd {
-			if group.UsageBasedDuration == nil {
-				groupsToAdd[i].UsageBasedDuration = input.UsageBasedAutolockDurationDays
-			}
-		}
 	}
 
 	if err := r.client.AddResourceAccess(ctx, input.ID, convertResourceAccess(serviceAccountsToAdd, groupsToAdd, input.UsageBasedAutolockDurationDays)); err != nil {
@@ -1330,15 +1321,10 @@ func convertServiceAccessToTerraform(ctx context.Context, serviceAccounts []stri
 
 func convertGroupsAccessToTerraform(ctx context.Context, groupAccess []model.AccessGroup, referenceGroupAccess types.Set) (types.Set, diag.Diagnostics) {
 	reference := getGroupAccessAttribute(referenceGroupAccess)
-	referenceLookup := make(map[string]string)
+	referenceLookup := make(map[string]model.AccessGroup)
 
 	for _, access := range reference {
-		var approvalMode string
-		if access.ApprovalMode != nil {
-			approvalMode = *access.ApprovalMode
-		}
-
-		referenceLookup[access.GroupID] = approvalMode
+		referenceLookup[access.GroupID] = access
 	}
 
 	var diagnostics diag.Diagnostics
@@ -1357,9 +1343,15 @@ func convertGroupsAccessToTerraform(ctx context.Context, groupAccess []model.Acc
 			attr.ApprovalMode:                   types.StringPointerValue(access.ApprovalMode),
 		}
 
-		referenceApprovalMode, exists := referenceLookup[access.GroupID]
-		if exists && referenceApprovalMode == "" {
-			attributes[attr.ApprovalMode] = types.StringNull()
+		if !referenceGroupAccess.IsNull() {
+			referenceGroup, exists := referenceLookup[access.GroupID]
+			if exists && referenceGroup.ApprovalMode == nil {
+				attributes[attr.ApprovalMode] = types.StringNull()
+			}
+
+			if exists && referenceGroup.UsageBasedDuration == nil {
+				attributes[attr.UsageBasedAutolockDurationDays] = types.Int64Null()
+			}
 		}
 
 		obj, diags := types.ObjectValue(accessGroupAttributeTypes(), attributes)

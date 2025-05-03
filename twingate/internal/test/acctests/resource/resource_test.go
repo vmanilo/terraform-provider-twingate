@@ -821,13 +821,18 @@ func TestAccTwingateResourceImport(t *testing.T) {
 				ImportState:  true,
 				ResourceName: theResource,
 				ImportStateCheck: acctests.CheckImportState(map[string]string{
-					attr.Address:      "acc-test.com.12",
-					tcpPolicy:         model.PolicyRestricted,
-					tcpPortsLen:       "2",
-					firstTCPPort:      "80",
-					udpPolicy:         model.PolicyAllowAll,
-					udpPortsLen:       "0",
-					accessGroupIdsLen: "2",
+					attr.Name:                           resourceName,
+					attr.Address:                        "acc-test.com.12",
+					tcpPolicy:                           model.PolicyRestricted,
+					tcpPortsLen:                         "2",
+					firstTCPPort:                        "80",
+					udpPolicy:                           model.PolicyAllowAll,
+					udpPortsLen:                         "0",
+					accessGroupIdsLen:                   "2",
+					attr.UsageBasedAutolockDurationDays: "10",
+					attr.ApprovalMode:                   "MANUAL",
+					attr.Path(attr.AccessGroup, attr.ApprovalMode):                   "MANUAL",
+					attr.Path(attr.AccessGroup, attr.UsageBasedAutolockDurationDays): "13",
 				}),
 			},
 		},
@@ -852,11 +857,16 @@ func createResource12(networkName, groupName1, groupName2, resourceName string) 
 	  name = "%s"
 	  address = "acc-test.com.12"
 	  remote_network_id = twingate_remote_network.test12.id
+
+	  approval_mode = "MANUAL"
+	  usage_based_autolock_duration_days = 10
 	  
       dynamic "access_group" {
 		for_each = [twingate_group.g121.id, twingate_group.g122.id]
 		content {
 			group_id = access_group.value
+			approval_mode = "MANUAL"
+			usage_based_autolock_duration_days = 13
 		}
       }
       
@@ -4026,6 +4036,7 @@ func TestAccTwingateCreateResourceWithDefaultUsageBasedAutolockDurationDays(t *t
 
 	theResource := acctests.TerraformResource(resourceName)
 	autolockDays := rand.Int63n(30) + 1
+	autolockDays1 := autolockDays + 1
 
 	sdk.Test(t, sdk.TestCase{
 		ProtoV6ProviderFactories: acctests.ProviderFactories,
@@ -4037,7 +4048,26 @@ func TestAccTwingateCreateResourceWithDefaultUsageBasedAutolockDurationDays(t *t
 				Check: acctests.ComposeTestCheckFunc(
 					acctests.CheckTwingateResourceExists(theResource),
 					sdk.TestCheckResourceAttr(theResource, attr.UsageBasedAutolockDurationDays, fmt.Sprintf("%v", autolockDays)),
+					acctests.CheckTwingateResourceUsageBasedDuration(theResource, autolockDays),
 					acctests.CheckTwingateResourceUsageBasedOnGroupAccess(theResource, autolockDays),
+				),
+			},
+			{
+				Config: createResourceWithDefaultAutolock(remoteNetworkName, resourceName, groupName, autolockDays1),
+				Check: acctests.ComposeTestCheckFunc(
+					acctests.CheckTwingateResourceExists(theResource),
+					sdk.TestCheckResourceAttr(theResource, attr.UsageBasedAutolockDurationDays, fmt.Sprintf("%v", autolockDays1)),
+					acctests.CheckTwingateResourceUsageBasedDuration(theResource, autolockDays1),
+					acctests.CheckTwingateResourceUsageBasedOnGroupAccess(theResource, autolockDays1),
+				),
+			},
+			{
+				Config: createResourceWithoutDefaultAutolock(remoteNetworkName, resourceName, groupName),
+				Check: acctests.ComposeTestCheckFunc(
+					acctests.CheckTwingateResourceExists(theResource),
+					sdk.TestCheckNoResourceAttr(theResource, attr.UsageBasedAutolockDurationDays),
+					acctests.CheckTwingateResourceUsageBasedIsNullOnResource(theResource),
+					acctests.CheckTwingateResourceUsageBasedIsNullOnGroupAccess(theResource),
 				),
 			},
 		},
@@ -4067,6 +4097,28 @@ func createResourceWithDefaultAutolock(remoteNetwork, resource, groupName string
 	`, remoteNetwork, resource, groupName, autolockDays)
 }
 
+func createResourceWithoutDefaultAutolock(remoteNetwork, resource, groupName string) string {
+	return fmt.Sprintf(`
+	resource "twingate_group" "g21" {
+      name = "%[3]s"
+    }
+
+	resource "twingate_remote_network" "%[1]s" {
+	  name = "%[1]s"
+	}
+
+	resource "twingate_resource" "%[2]s" {
+	  name = "%[2]s"
+	  address = "acc-test-address.com"
+	  remote_network_id = twingate_remote_network.%[1]s.id
+	  
+	  access_group {
+		group_id = twingate_group.g21.id
+      }
+	}
+	`, remoteNetwork, resource, groupName)
+}
+
 func TestAccTwingateCreateResourceWithDefaultUsageBasedAutolockDurationDaysAndGroupAutolock(t *testing.T) {
 	t.Parallel()
 
@@ -4089,6 +4141,22 @@ func TestAccTwingateCreateResourceWithDefaultUsageBasedAutolockDurationDaysAndGr
 					acctests.CheckTwingateResourceExists(theResource),
 					sdk.TestCheckResourceAttr(theResource, attr.UsageBasedAutolockDurationDays, fmt.Sprintf("%v", autolockDays1)),
 					acctests.CheckTwingateResourceUsageBasedOnGroupAccess(theResource, autolockDays2),
+				),
+			},
+			{
+				Config: createResourceWithDefaultAutolock(remoteNetworkName, resourceName, groupName, autolockDays1),
+				Check: acctests.ComposeTestCheckFunc(
+					acctests.CheckTwingateResourceExists(theResource),
+					sdk.TestCheckResourceAttr(theResource, attr.UsageBasedAutolockDurationDays, fmt.Sprintf("%v", autolockDays1)),
+					acctests.CheckTwingateResourceUsageBasedDuration(theResource, autolockDays1),
+					acctests.CheckTwingateResourceUsageBasedOnGroupAccess(theResource, autolockDays1),
+				),
+			},
+			{
+				Config: createResourceWithoutDefaultAutolock(remoteNetworkName, resourceName, groupName),
+				Check: acctests.ComposeTestCheckFunc(
+					acctests.CheckTwingateResourceExists(theResource),
+					acctests.CheckTwingateResourceUsageBasedIsNullOnGroupAccess(theResource),
 				),
 			},
 		},

@@ -140,6 +140,7 @@ resource "twingate_resource" "resource" {
 - `protocols` (Attributes) Restrict access to certain protocols and ports. By default or when this argument is not defined, there is no restriction, and all protocols and ports are allowed. (see [below for nested schema](#nestedatt--protocols))
 - `security_policy_id` (String) The ID of a `twingate_security_policy` to set as this Resource's Security Policy. Default is `Default Policy`.
 - `tags` (Map of String) The `tags` attribute consists of a key-value pairs that correspond with tags to be set on the resource.
+- `usage_based_autolock_duration_days` (Number) The usage-based auto-lock duration for the Resource (in days).
 
 ### Read-Only
 
