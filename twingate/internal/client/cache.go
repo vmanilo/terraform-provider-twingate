@@ -294,7 +294,7 @@ func isCacheReady[T any]() bool {
 	)
 
 	handle(res, func(handler resourceHandler) {
-		ready = handler.isEnabled() && !handler.isFilterSet()
+		ready = handler.isEnabled() && handler.isFilterSet()
 	})
 
 	return ready

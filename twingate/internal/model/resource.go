@@ -204,6 +204,9 @@ type ResourceFilter interface {
 	GetTypes() []string
 	GetIsActive() *bool
 	GetTags() map[string]string
+	GetRemoteNetworkID() *string
+
+	String() string
 }
 
 func (r Resource) Match(filter ResourceFilter) bool {
@@ -258,6 +261,11 @@ func (r Resource) Match(filter ResourceFilter) bool {
 				return false
 			}
 		}
+	}
+
+	// filter by remote network id
+	if filter.GetRemoteNetworkID() != nil && *filter.GetRemoteNetworkID() != r.RemoteNetworkID {
+		return false
 	}
 
 	return true
@@ -407,9 +415,10 @@ func (p *Protocol) ToTerraform() []any {
 }
 
 type ResourcesFilter struct {
-	Name       *string
-	NameFilter string
-	Tags       map[string]string
+	Name            *string
+	NameFilter      string
+	Tags            map[string]string
+	RemoteNetworkID *string
 }
 
 func (f *ResourcesFilter) HasName() bool {
@@ -448,4 +457,39 @@ func (f *ResourcesFilter) HasNotSupportedFilters() bool {
 
 func (f *ResourcesFilter) GetTags() map[string]string {
 	return f.Tags
+}
+
+func (f *ResourcesFilter) GetRemoteNetworkID() *string {
+	return f.RemoteNetworkID
+}
+
+func (f *ResourcesFilter) String() string {
+	if f == nil {
+		return "ResourcesFilter{<nil>}"
+	}
+
+	var parts []string
+
+	if f.HasName() {
+		match := f.NameFilter
+		if match == "" {
+			match = "exact"
+		}
+
+		parts = append(parts, fmt.Sprintf("Name(%s)=%q", match, f.GetName()))
+	}
+
+	if len(f.Tags) > 0 {
+		parts = append(parts, fmt.Sprintf("Tags=%v", f.Tags))
+	}
+
+	if f.RemoteNetworkID != nil && *f.RemoteNetworkID != "" {
+		parts = append(parts, fmt.Sprintf("RemoteNetworkID=%q", *f.RemoteNetworkID))
+	}
+
+	if len(parts) == 0 {
+		return "ResourcesFilter{}"
+	}
+
+	return "ResourcesFilter{" + strings.Join(parts, ", ") + "}"
 }

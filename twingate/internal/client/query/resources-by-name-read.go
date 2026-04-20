@@ -9,14 +9,16 @@ func (q ReadResourcesByName) IsEmpty() bool {
 }
 
 type ResourceFilterInput struct {
-	Name *StringFilterOperationInput `json:"name"`
-	Tags *TagsFilterOperatorInput    `json:"tags"`
+	Name            *StringFilterOperationInput          `json:"name"`
+	Tags            *TagsFilterOperatorInput             `json:"tags"`
+	RemoteNetworkID *RemoteNetworkIdFilterOperationInput `json:"remoteNetworkId"`
 }
 
-func NewResourceFilterInput(name, filter string, tags map[string]string) *ResourceFilterInput {
+func NewResourceFilterInput(name, filter string, tags map[string]string, remoteNetworkId *string) *ResourceFilterInput {
 	return &ResourceFilterInput{
-		Name: NewStringFilterOperationInput(name, filter),
-		Tags: NewTagsFilterOperatorInput(tags),
+		Name:            NewStringFilterOperationInput(name, filter),
+		Tags:            NewTagsFilterOperatorInput(tags),
+		RemoteNetworkID: NewRemoteNetworkIdFilterOperationInput(remoteNetworkId),
 	}
 }
 
@@ -41,6 +43,16 @@ func NewTagsFilterOperatorInput(tags map[string]string) *TagsFilterOperatorInput
 	return filter
 }
 
+func NewRemoteNetworkIdFilterOperationInput(remoteNetworkId *string) *RemoteNetworkIdFilterOperationInput {
+	if remoteNetworkId == nil {
+		return nil
+	}
+
+	return &RemoteNetworkIdFilterOperationInput{
+		Eq: remoteNetworkId,
+	}
+}
+
 type TagsFilterOperatorInput struct {
 	And []TagKeyValueFilterInput `json:"and"`
 }
@@ -52,4 +64,9 @@ type TagKeyValueFilterInput struct {
 
 type TagValueFilterInput struct {
 	Eq *string `json:"eq"`
+}
+
+type RemoteNetworkIdFilterOperationInput struct {
+	Eq *string  `json:"eq"`
+	In []string `json:"in"`
 }

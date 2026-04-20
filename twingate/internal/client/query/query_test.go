@@ -2688,7 +2688,7 @@ func TestResourceFilter(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			result := NewResourceFilterInput(c.inputName, c.inputFilter, nil)
+			result := NewResourceFilterInput(c.inputName, c.inputFilter, nil, nil)
 
 			assert.Equal(t, c.expectedFilter, result.Name)
 		})
@@ -2735,7 +2735,7 @@ func TestResourceFilterTags(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			result := NewResourceFilterInput("", "", c.tags)
+			result := NewResourceFilterInput("", "", c.tags, nil)
 
 			if c.expectedFilter == nil {
 				assert.Nil(t, result.Tags)
@@ -2746,6 +2746,35 @@ func TestResourceFilterTags(t *testing.T) {
 
 				assert.EqualValues(t, c.expectedFilter, result.Tags)
 			}
+		})
+	}
+}
+
+func TestResourceFilterRemoteNetworkId(t *testing.T) {
+	cases := []struct {
+		name            string
+		remoteNetworkId *string
+		expectedFilter  *RemoteNetworkIdFilterOperationInput
+	}{
+		{
+			name:            "With remoteNetworkId",
+			remoteNetworkId: optionalString("network-id-1"),
+			expectedFilter: &RemoteNetworkIdFilterOperationInput{
+				Eq: optionalString("network-id-1"),
+			},
+		},
+		{
+			name:            "Nil remoteNetworkId",
+			remoteNetworkId: nil,
+			expectedFilter:  nil,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			result := NewResourceFilterInput("", "", nil, c.remoteNetworkId)
+
+			assert.Equal(t, c.expectedFilter, result.RemoteNetworkID)
 		})
 	}
 }

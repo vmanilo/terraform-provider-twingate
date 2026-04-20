@@ -147,6 +147,10 @@ func (t Twingate) Schema(ctx context.Context, request provider.SchemaRequest, re
 								Optional:    true,
 								Description: "Returns only resources that exactly match the given tags.",
 							},
+							attr.RemoteNetworkID: schema.StringAttribute{
+								Optional:    true,
+								Description: "Returns only resources that are associated with the specified remote network ID.",
+							},
 						},
 					},
 					attr.GroupsEnabled: schema.BoolAttribute{
@@ -350,10 +354,18 @@ func parseResourcesFilter(config types.Object) (*model.ResourcesFilter, error) {
 
 	tags := attrs[attr.Tags].(types.Map)
 
+	remoteNetworkID := attrs[attr.RemoteNetworkID].(types.String)
+
+	remoteNetworkIDVal := remoteNetworkID.ValueStringPointer()
+	if remoteNetworkIDVal != nil && *remoteNetworkIDVal == "" {
+		remoteNetworkIDVal = nil
+	}
+
 	return &model.ResourcesFilter{
-		Name:       &value,
-		NameFilter: filter,
-		Tags:       twingateDatasource.GetTags(tags),
+		Name:            &value,
+		NameFilter:      filter,
+		Tags:            twingateDatasource.GetTags(tags),
+		RemoteNetworkID: remoteNetworkIDVal,
 	}, nil
 }
 
