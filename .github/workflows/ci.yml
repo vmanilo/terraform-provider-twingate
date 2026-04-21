@@ -60,6 +60,10 @@ jobs:
         with:
           go-version-file: 'go.mod'
           cache: true
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: 'latest'
+          terraform_wrapper: false
       - run: make docs
       - name: git diff
         run: |
