@@ -415,10 +415,11 @@ func (p *Protocol) ToTerraform() []any {
 }
 
 type ResourcesFilter struct {
-	Name            *string
-	NameFilter      string
-	Tags            map[string]string
-	RemoteNetworkID *string
+	Name              *string
+	NameFilter        string
+	Tags              map[string]string
+	RemoteNetworkID   *string
+	RemoteNetworkName *string
 }
 
 func (f *ResourcesFilter) HasName() bool {
@@ -481,6 +482,10 @@ func (f *ResourcesFilter) String() string {
 
 	if len(f.Tags) > 0 {
 		parts = append(parts, fmt.Sprintf("Tags=%v", f.Tags))
+	}
+
+	if f.RemoteNetworkName != nil && *f.RemoteNetworkName != "" {
+		parts = append(parts, fmt.Sprintf("RemoteNetworkName=%q", *f.RemoteNetworkName))
 	}
 
 	if f.RemoteNetworkID != nil && *f.RemoteNetworkID != "" {

@@ -17,6 +17,10 @@ var skipCache = CacheOptions{}
 type mockClient struct {
 }
 
+func (m mockClient) ReadRemoteNetworkByName(ctx context.Context, remoteNetworkName string) (*model.RemoteNetwork, error) {
+	return &model.RemoteNetwork{}, nil
+}
+
 func (m mockClient) ReadFullResourcesByName(ctx context.Context, filter *model.ResourcesFilter) ([]*model.Resource, error) {
 	return []*model.Resource{}, nil
 }
@@ -35,7 +39,7 @@ func (m mockClient) ReadFullGroups(ctx context.Context) ([]*model.Group, error) 
 
 func TestClientCache_SetClient(t *testing.T) {
 	cache := &clientCache{}
-	cache.setClient(&mockClient{}, skipCache)
+	cache.setClient(t.Context(), &mockClient{}, skipCache)
 
 	assert.NotNil(t, cache.handlers)
 	assert.Contains(t, cache.handlers, reflect.TypeOf(&model.Resource{}).String())

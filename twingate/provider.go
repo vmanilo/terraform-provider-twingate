@@ -150,6 +150,16 @@ func (t Twingate) Schema(ctx context.Context, request provider.SchemaRequest, re
 							attr.RemoteNetworkID: schema.StringAttribute{
 								Optional:    true,
 								Description: "Returns only resources that are associated with the specified remote network ID.",
+								Validators: []validator.String{
+									stringvalidator.ConflictsWith(path.MatchRelative().AtParent().AtName(attr.RemoteNetworkName)),
+								},
+							},
+							attr.RemoteNetworkName: schema.StringAttribute{
+								Optional:    true,
+								Description: "Returns only resources that are associated with the specified remote network name.",
+								Validators: []validator.String{
+									stringvalidator.ConflictsWith(path.MatchRelative().AtParent().AtName(attr.RemoteNetworkID)),
+								},
 							},
 						},
 					},
@@ -264,7 +274,9 @@ func (t Twingate) Configure(ctx context.Context, request provider.ConfigureReque
 		return
 	}
 
-	client := client.NewClient(url,
+	client := client.NewClient(
+		ctx,
+		url,
 		apiToken,
 		network,
 		time.Duration(httpTimeout)*time.Second,
@@ -361,11 +373,19 @@ func parseResourcesFilter(config types.Object) (*model.ResourcesFilter, error) {
 		remoteNetworkIDVal = nil
 	}
 
+	remoteNetworkName := attrs[attr.RemoteNetworkName].(types.String)
+
+	remoteNetworkNameVal := remoteNetworkName.ValueStringPointer()
+	if remoteNetworkNameVal != nil && *remoteNetworkNameVal == "" {
+		remoteNetworkNameVal = nil
+	}
+
 	return &model.ResourcesFilter{
-		Name:            &value,
-		NameFilter:      filter,
-		Tags:            twingateDatasource.GetTags(tags),
-		RemoteNetworkID: remoteNetworkIDVal,
+		Name:              &value,
+		NameFilter:        filter,
+		Tags:              twingateDatasource.GetTags(tags),
+		RemoteNetworkID:   remoteNetworkIDVal,
+		RemoteNetworkName: remoteNetworkNameVal,
 	}, nil
 }
 
