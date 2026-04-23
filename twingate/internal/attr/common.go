@@ -1,11 +1,12 @@
 package attr
 
 const (
-	ID              = "id"
-	Name            = "name"
-	RemoteNetworkID = "remote_network_id"
-	Type            = "type"
-	IsActive        = "is_active"
+	ID                = "id"
+	Name              = "name"
+	RemoteNetworkID   = "remote_network_id"
+	RemoteNetworkName = "remote_network_name"
+	Type              = "type"
+	IsActive          = "is_active"
 
 	FilterByRegexp   = "_regexp"
 	FilterByContains = "_contains"

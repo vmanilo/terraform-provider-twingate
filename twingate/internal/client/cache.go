@@ -33,10 +33,22 @@ type ReadClient interface {
 
 	ReadFullResourcesByName(ctx context.Context, filter *model.ResourcesFilter) ([]*model.Resource, error)
 	ReadFullGroupsByName(ctx context.Context, filter *model.GroupsFilter) ([]*model.Group, error)
+
+	ReadRemoteNetworkByName(ctx context.Context, remoteNetworkName string) (*model.RemoteNetwork, error)
 }
 
-func (c *clientCache) setClient(client ReadClient, opts CacheOptions) {
+func (c *clientCache) setClient(ctx context.Context, client ReadClient, opts CacheOptions) {
 	c.once.Do(func() {
+		if opts.ResourceEnabled && opts.ResourcesFilter != nil &&
+			opts.ResourcesFilter.RemoteNetworkName != nil && *opts.ResourcesFilter.RemoteNetworkName != "" {
+			remoteNetwork, err := client.ReadRemoteNetworkByName(WithCallerCtx(ctx, cacheKey), *opts.ResourcesFilter.RemoteNetworkName)
+			if err != nil {
+				log.Printf("[TWINGATE_LOG] [ERR] cache init failed to fetch remote network by name - %s: %s", *opts.ResourcesFilter.RemoteNetworkName, err.Error())
+			} else if remoteNetwork != nil {
+				opts.ResourcesFilter.RemoteNetworkID = &remoteNetwork.ID
+			}
+		}
+
 		c.handlers = map[string]resourceHandler{
 			reflect.TypeFor[*model.Resource]().String(): &handler[*model.Resource, *model.ResourcesFilter]{
 				enabled:         opts.ResourceEnabled,
@@ -294,7 +306,7 @@ func isCacheReady[T any]() bool {
 	)
 
 	handle(res, func(handler resourceHandler) {
-		ready = handler.isEnabled() && !handler.isFilterSet()
+		ready = handler.isEnabled() && handler.isFilterSet()
 	})
 
 	return ready

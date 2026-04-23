@@ -44,7 +44,7 @@ func sharedClient(tenant string) (*client.Client, error) {
 		return nil, fmt.Errorf("must provide environment variable %s", twingate.EnvURL)
 	}
 
-	return client.NewClient(
+	return client.NewClient(context.Background(),
 			os.Getenv(twingate.EnvURL),
 			os.Getenv(twingate.EnvAPIToken),
 			os.Getenv(twingate.EnvNetwork),

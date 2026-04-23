@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"regexp"
 	"slices"
 	"strings"
@@ -142,4 +143,39 @@ func (f *GroupsFilter) HasNotSupportedFilters() bool {
 func (f *GroupsFilter) GetTags() map[string]string {
 	// not supported
 	return nil
+}
+
+func (f *GroupsFilter) GetRemoteNetworkID() *string {
+	return nil
+}
+
+func (f *GroupsFilter) String() string {
+	if f == nil {
+		return "GroupsFilter{<nil>}"
+	}
+
+	var parts []string
+
+	if f.HasName() {
+		match := f.NameFilter
+		if match == "" {
+			match = "exact"
+		}
+
+		parts = append(parts, fmt.Sprintf("Name(%s)=%q", match, f.GetName()))
+	}
+
+	if len(f.Types) > 0 {
+		parts = append(parts, fmt.Sprintf("Types=%v", f.Types))
+	}
+
+	if f.IsActive != nil {
+		parts = append(parts, fmt.Sprintf("IsActive=%v", *f.IsActive))
+	}
+
+	if len(parts) == 0 {
+		return "GroupsFilter{}"
+	}
+
+	return "GroupsFilter{" + strings.Join(parts, ", ") + "}"
 }

@@ -52,7 +52,7 @@ func TestReadKubernetesResources(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			client := newTestClient()
+			client := newTestClient(t.Context())
 			httpmock.ActivateNonDefault(client.HTTPClient)
 			defer httpmock.DeactivateAndReset()
 

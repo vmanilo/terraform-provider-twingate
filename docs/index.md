@@ -90,6 +90,8 @@ Optional:
 - `name_prefix` (String) The name of the resource must start with the value.
 - `name_regexp` (String) The regular expression match of the name of the resource.
 - `name_suffix` (String) The name of the resource must end with the value.
+- `remote_network_id` (String) Returns only resources that are associated with the specified remote network ID.
+- `remote_network_name` (String) Returns only resources that are associated with the specified remote network name.
 - `tags` (Map of String) Returns only resources that exactly match the given tags.
 
 

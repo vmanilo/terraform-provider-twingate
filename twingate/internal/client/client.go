@@ -183,7 +183,7 @@ func customRetryPolicy(ctx context.Context, resp *http.Response, err error) (boo
 	return true, nil
 }
 
-func NewClient(url string, apiToken string, network string, httpTimeout time.Duration, httpRetryMax int, agent, version string, opts CacheOptions) *Client {
+func NewClient(ctx context.Context, url string, apiToken string, network string, httpTimeout time.Duration, httpRetryMax int, agent, version string, opts CacheOptions) *Client {
 	correlationID, _ := uuid.GenerateUUID()
 
 	sURL := newServerURL(network, url)
@@ -222,7 +222,7 @@ func NewClient(url string, apiToken string, network string, httpTimeout time.Dur
 	log.Printf("[INFO] Using Server URL %s", sURL.newGraphqlServerURL())
 
 	if opts.GroupsEnabled || opts.ResourceEnabled {
-		cache.setClient(&client, opts)
+		cache.setClient(ctx, &client, opts)
 	}
 
 	return &client

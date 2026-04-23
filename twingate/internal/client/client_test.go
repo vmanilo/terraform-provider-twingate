@@ -18,15 +18,15 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func newTestClient() *Client {
-	return NewClient(
+func newTestClient(ctx context.Context) *Client {
+	return NewClient(ctx,
 		"twindev.com", "xxxx", "test",
 		time.Duration(1)*time.Second, 0, DefaultAgent, "test", skipCache,
 	)
 }
 
 func TestNewClientPayloadMarshalError(t *testing.T) {
-	c := newTestClient()
+	c := newTestClient(t.Context())
 	_, err := c.post(context.TODO(), "/hello", make(chan int), nil)
 
 	assert.ErrorContains(t, err, "json")
@@ -36,14 +36,14 @@ func TestNewClientCancelledContextError(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	cancel()
 
-	c := newTestClient()
+	c := newTestClient(t.Context())
 	_, err := c.post(ctx, "/hello", "hello", nil)
 
 	assert.ErrorContains(t, err, "can't execute http request")
 }
 
 func TestNewClientNilContextError(t *testing.T) {
-	c := newTestClient()
+	c := newTestClient(t.Context())
 	_, err := c.post(nil, "/hello", "hello", nil)
 
 	assert.ErrorContains(t, err, "net/http: nil Context")
@@ -60,7 +60,7 @@ func (d *dummyFailingReadCloser) Close() error {
 }
 
 func TestClientFailedReadBody(t *testing.T) {
-	client := newTestClient()
+	client := newTestClient(t.Context())
 	httpmock.ActivateNonDefault(client.HTTPClient)
 	defer httpmock.DeactivateAndReset()
 
@@ -81,7 +81,7 @@ func TestClientAPITokenNotSet(t *testing.T) {
 	os.Setenv(EnvAPIToken, "")
 	defer os.Setenv(EnvAPIToken, apiToken)
 
-	client := NewClient(
+	client := NewClient(t.Context(),
 		"twindev.com", "", "test",
 		time.Duration(1)*time.Second, 0, DefaultAgent, "test", skipCache,
 	)
@@ -97,7 +97,7 @@ func TestClientAPITokenNotSet(t *testing.T) {
 }
 
 func TestClientInvalidServerAddress(t *testing.T) {
-	client := NewClient(
+	client := NewClient(t.Context(),
 		"beamreach.twingate.com", "XXXXX", "beamreach",
 		time.Duration(10)*time.Second, 3, DefaultAgent, "test", skipCache,
 	)

@@ -322,7 +322,7 @@ func (client *Client) ReadFullResourcesByName(ctx context.Context, filter *model
 	opr := resourceResource.read().withCustomName("readFullResourcesByName")
 
 	variables := newVars(
-		gqlNullable(query.NewResourceFilterInput(filter.GetName(), filter.GetFilterBy(), filter.GetTags()), "filter"),
+		gqlNullable(query.NewResourceFilterInput(filter.GetName(), filter.GetFilterBy(), filter.GetTags(), filter.RemoteNetworkID), "filter"),
 		cursor(query.CursorAccess),
 		cursor(query.CursorResources),
 		pageLimit(extendedPageLimit),
@@ -490,10 +490,12 @@ func (client *Client) ReadResourcesByName(ctx context.Context, filter *model.Res
 		}
 
 		log.Println("[DEBUG] ReadResourcesByName: no matched resource in cache: fallback to query API")
+	} else {
+		log.Println("[DEBUG] ReadResourcesByName: cache is not ready: fallback to query API")
 	}
 
 	variables := newVars(
-		gqlNullable(query.NewResourceFilterInput(filter.GetName(), filter.GetFilterBy(), filter.GetTags()), "filter"),
+		gqlNullable(query.NewResourceFilterInput(filter.GetName(), filter.GetFilterBy(), filter.GetTags(), filter.RemoteNetworkID), "filter"),
 		cursor(query.CursorResources),
 		pageLimit(client.pageLimit),
 	)
