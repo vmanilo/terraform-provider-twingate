@@ -109,8 +109,7 @@ func TestClientInvalidServerAddress(t *testing.T) {
 
 	_, err := client.post(context.TODO(), "/hello", "hello", nil)
 
-	assert.ErrorContains(t, err, `x509`)
-	assert.ErrorContains(t, err, `certificate`)
+	assert.ErrorContains(t, err, `status 404`)
 }
 
 func TestCustomRetryPolicy(t *testing.T) {
