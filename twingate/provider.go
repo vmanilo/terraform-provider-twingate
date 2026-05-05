@@ -3,6 +3,7 @@ package twingate
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/Twingate/terraform-provider-twingate/v4/twingate/internal/provider/providerdata"
 	twingateResource "github.com/Twingate/terraform-provider-twingate/v4/twingate/internal/provider/resource"
 	"github.com/Twingate/terraform-provider-twingate/v4/twingate/internal/utils"
+	"github.com/hashicorp/go-retryablehttp"
 	"github.com/hashicorp/terraform-plugin-framework-validators/setvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	tfattr "github.com/hashicorp/terraform-plugin-framework/attr"
@@ -274,11 +276,12 @@ func (t Twingate) Configure(ctx context.Context, request provider.ConfigureReque
 		return
 	}
 
+	regionalURL := resolveRegionalURL(network, url, time.Duration(httpTimeout)*time.Second, httpMaxRetry)
+
 	client := client.NewClient(
 		ctx,
-		url,
+		regionalURL,
 		apiToken,
-		network,
 		time.Duration(httpTimeout)*time.Second,
 		httpMaxRetry,
 		t.agent,
@@ -288,8 +291,9 @@ func (t Twingate) Configure(ctx context.Context, request provider.ConfigureReque
 	providerData := &providerdata.ProviderData{
 		Client: client,
 		Config: providerdata.Config{
-			Network: network,
-			URL:     url,
+			RegionalURL: regionalURL,
+			Network:     network,
+			URL:         url,
 		},
 		DefaultTags: getDefaultTags(config.DefaultTags),
 	}
@@ -297,6 +301,36 @@ func (t Twingate) Configure(ctx context.Context, request provider.ConfigureReque
 	response.DataSourceData = providerData
 	response.ResourceData = providerData
 	response.EphemeralResourceData = providerData
+}
+
+// resolveRegionalURL returns the regional URL without a slash at the end.
+func resolveRegionalURL(network, url string, timeout time.Duration, retryMax int) string {
+	originalURL := fmt.Sprintf("https://%s.%s", network, url)
+
+	retryableClient := retryablehttp.NewClient()
+	retryableClient.Logger = nil
+	retryableClient.RetryMax = retryMax
+	retryableClient.HTTPClient.Timeout = timeout
+
+	resp, err := retryableClient.StandardClient().Get(originalURL)
+
+	defer func() {
+		if resp == nil {
+			return
+		}
+
+		if err := resp.Body.Close(); err != nil {
+			log.Printf("[ERROR] Failed to close response body: %v", err)
+		}
+	}()
+
+	if err != nil {
+		log.Printf("[ERROR] Failed to resolve regional URL: %v", err)
+
+		return originalURL
+	}
+
+	return "https://" + resp.Request.URL.Host
 }
 
 func getCacheOptions(config types.Object) (client.CacheOptions, error) {
@@ -509,6 +543,7 @@ func (t Twingate) DataSources(ctx context.Context) []func() datasource.DataSourc
 		twingateDatasource.NewX509CertificateAuthorityDatasource,
 		twingateDatasource.NewSSHCertificateAuthorityDatasource,
 		twingateDatasource.NewGatewayDatasource,
+		twingateDatasource.NewSyncToS3Datasource,
 	}
 }
 

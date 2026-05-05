@@ -120,9 +120,9 @@ type serverURL struct {
 	url string
 }
 
-func newServerURL(network, url string) serverURL {
+func newServerURL(url string) serverURL {
 	return serverURL{
-		url: fmt.Sprintf("https://%s.%s", network, url),
+		url: url,
 	}
 }
 
@@ -183,10 +183,10 @@ func customRetryPolicy(ctx context.Context, resp *http.Response, err error) (boo
 	return true, nil
 }
 
-func NewClient(ctx context.Context, url string, apiToken string, network string, httpTimeout time.Duration, httpRetryMax int, agent, version string, opts CacheOptions) *Client {
+func NewClient(ctx context.Context, regionalURL, apiToken string, httpTimeout time.Duration, httpRetryMax int, agent, version string, opts CacheOptions) *Client {
 	correlationID, _ := uuid.GenerateUUID()
 
-	sURL := newServerURL(network, url)
+	sURL := newServerURL(regionalURL)
 	retryableClient := retryablehttp.NewClient()
 	retryableClient.Logger = nil
 	retryableClient.CheckRetry = customRetryPolicy
