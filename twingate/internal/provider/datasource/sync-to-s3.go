@@ -20,6 +20,7 @@ import (
 const (
 	oidcAPI     = "/oidc/v2"
 	httpsPrefix = "https://"
+	defaultType = model.SyncToS3TypeOIDC
 )
 
 // Ensure the implementation satisfies the desired interfaces.
@@ -73,10 +74,11 @@ func (d *syncToS3) Schema(ctx context.Context, req datasource.SchemaRequest, res
 				Description: computedDatasourceIDDescription,
 			},
 			attr.Type: schema.StringAttribute{
-				Required:    true,
-				Description: fmt.Sprintf("The type of the resource. One of: %s.", utils.DocList(model.SyncToS3Types)),
+				Optional:    true,
+				Computed:    true,
+				Description: fmt.Sprintf(`The type of the resource. One of: %s. Defaults to "oidc".`, utils.DocList(model.SyncToS3Types)),
 				Validators: []validator.String{
-					stringvalidator.OneOf(model.SyncToS3Types...),
+					stringvalidator.OneOf(append(model.SyncToS3Types, "")...),
 				},
 			},
 			attr.OidcURL: schema.StringAttribute{
@@ -99,6 +101,10 @@ func (d *syncToS3) Read(ctx context.Context, req datasource.ReadRequest, resp *d
 
 	if resp.Diagnostics.HasError() {
 		return
+	}
+
+	if data.Type.IsNull() {
+		data.Type = types.StringValue(defaultType)
 	}
 
 	data.ID = types.StringValue(terraformSyncToS3DatasourceID(data.Type.ValueString()))

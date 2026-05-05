@@ -91,27 +91,3 @@ func TestAccDatasourceTwingateSyncToS3_invalidType(t *testing.T) {
 		},
 	})
 }
-
-func terraformDatasourceSyncToS3MissingType(terraformResourceName string) string {
-	return fmt.Sprintf(`
-	data "twingate_sync_to_s3" "%[1]s" {
-	}
-	`, terraformResourceName)
-}
-
-func TestAccDatasourceTwingateSyncToS3_missingType(t *testing.T) {
-	t.Parallel()
-
-	terraformResourceName := test.TerraformRandName("test_sync_s3_missing_ds")
-
-	sdk.Test(t, sdk.TestCase{
-		ProtoV6ProviderFactories: acctests.ProviderFactories,
-		PreCheck:                 func() { acctests.PreCheck(t) },
-		Steps: []sdk.TestStep{
-			{
-				Config:      terraformDatasourceSyncToS3MissingType(terraformResourceName),
-				ExpectError: regexp.MustCompile(`(?i)("type" is required|argument.*type.*required|missing required argument)`),
-			},
-		},
-	})
-}

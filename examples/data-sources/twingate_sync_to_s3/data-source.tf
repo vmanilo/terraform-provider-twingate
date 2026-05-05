@@ -3,9 +3,7 @@ provider "twingate" {
   network   = "mynetwork"
 }
 
-data "twingate_sync_to_s3" "example" {
-  type = "oidc"
-}
+data "twingate_sync_to_s3" "example" {}
 
 output "oidc_url" {
   value = data.twingate_sync_to_s3.example.oidc_url
