@@ -193,14 +193,17 @@ func NewCustomRetryableClient(httpTimeout time.Duration, httpRetryMax int, apiTo
 		req.Header.Set(headerRequestID, reqID)
 
 		if retryNumber > 0 {
-			safeURL := strings.NewReplacer("\n", "", "\r", "").Replace(req.URL.String())
-			log.Printf("[TWINGATE_LOG] [WARN] [id:%s] Failed to call %s (retry %d)", reqID, safeURL, retryNumber) // #nosec G706
+			log.Printf("[TWINGATE_LOG] [WARN] [id:%s] Failed to call %s (retry %d)", reqID, SafeURL(req.URL.String()), retryNumber) // #nosec G706
 		}
 	}
 	retryableClient.HTTPClient.Timeout = httpTimeout
 	retryableClient.HTTPClient.Transport = newTransport(retryableClient.HTTPClient.Transport, apiToken, agent, version, correlationID)
 
 	return retryableClient.StandardClient()
+}
+
+func SafeURL(url string) string {
+	return strings.NewReplacer("\n", "", "\r", "").Replace(url)
 }
 
 func NewClient(ctx context.Context, regionalURL, apiToken string, httpTimeout time.Duration, httpRetryMax int, agent, version string, opts CacheOptions) *Client {

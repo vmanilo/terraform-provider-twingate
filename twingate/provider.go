@@ -304,7 +304,7 @@ func (t Twingate) Configure(ctx context.Context, request provider.ConfigureReque
 
 // resolveRegionalURL returns the regional URL without a slash at the end.
 func resolveRegionalURL(network, url string, timeout time.Duration, retryMax int, agent, version string) string {
-	originalURL := fmt.Sprintf("https://%s.%s", network, url)
+	originalURL := client.SafeURL(fmt.Sprintf("https://%s.%s", network, url))
 	httpClient := client.NewCustomRetryableClient(timeout, retryMax, "", agent, version, "")
 	resp, err := httpClient.Get(originalURL)
 
@@ -324,8 +324,8 @@ func resolveRegionalURL(network, url string, timeout time.Duration, retryMax int
 		return originalURL
 	}
 
-	resolvedURL := "https://" + resp.Request.URL.Host
-	log.Printf("[TWINGATE_LOG] [INFO] Resolved regional URL: %s -> %s", originalURL, resolvedURL) //nolint:gosec
+	resolvedURL := client.SafeURL("https://" + resp.Request.URL.Host)
+	log.Printf("[TWINGATE_LOG] [INFO] Resolved regional URL: %s -> %s", originalURL, resolvedURL) // #nosec G706
 
 	return resolvedURL
 }
