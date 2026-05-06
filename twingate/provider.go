@@ -15,6 +15,7 @@ import (
 	"github.com/Twingate/terraform-provider-twingate/v4/twingate/internal/provider/providerdata"
 	twingateResource "github.com/Twingate/terraform-provider-twingate/v4/twingate/internal/provider/resource"
 	"github.com/Twingate/terraform-provider-twingate/v4/twingate/internal/utils"
+	"github.com/hashicorp/go-uuid"
 	"github.com/hashicorp/terraform-plugin-framework-validators/setvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	tfattr "github.com/hashicorp/terraform-plugin-framework/attr"
@@ -275,7 +276,7 @@ func (t Twingate) Configure(ctx context.Context, request provider.ConfigureReque
 		return
 	}
 
-	regionalURL := resolveRegionalURL(network, url, time.Duration(httpTimeout)*time.Second, httpMaxRetry, t.agent, t.version)
+	regionalURL := resolveRegionalURL(network, url, time.Duration(httpTimeout)*time.Second, httpMaxRetry, apiToken, t.agent, t.version)
 
 	client := client.NewClient(
 		ctx,
@@ -303,9 +304,10 @@ func (t Twingate) Configure(ctx context.Context, request provider.ConfigureReque
 }
 
 // resolveRegionalURL returns the regional URL without a slash at the end.
-func resolveRegionalURL(network, url string, timeout time.Duration, retryMax int, agent, version string) string {
+func resolveRegionalURL(network, url string, timeout time.Duration, retryMax int, apiToken, agent, version string) string {
+	correlationID, _ := uuid.GenerateUUID()
 	originalURL := client.SafeURL(fmt.Sprintf("https://%s.%s", network, url))
-	httpClient := client.NewCustomRetryableClient(timeout, retryMax, "", agent, version, "")
+	httpClient := client.NewCustomRetryableClient(timeout, retryMax, apiToken, agent, version, correlationID)
 	resp, err := httpClient.Get(originalURL)
 
 	defer func() {
