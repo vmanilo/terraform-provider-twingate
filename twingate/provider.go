@@ -15,7 +15,6 @@ import (
 	"github.com/Twingate/terraform-provider-twingate/v4/twingate/internal/provider/providerdata"
 	twingateResource "github.com/Twingate/terraform-provider-twingate/v4/twingate/internal/provider/resource"
 	"github.com/Twingate/terraform-provider-twingate/v4/twingate/internal/utils"
-	"github.com/hashicorp/go-retryablehttp"
 	"github.com/hashicorp/terraform-plugin-framework-validators/setvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	tfattr "github.com/hashicorp/terraform-plugin-framework/attr"
@@ -276,7 +275,7 @@ func (t Twingate) Configure(ctx context.Context, request provider.ConfigureReque
 		return
 	}
 
-	regionalURL := resolveRegionalURL(network, url, time.Duration(httpTimeout)*time.Second, httpMaxRetry)
+	regionalURL := resolveRegionalURL(network, url, time.Duration(httpTimeout)*time.Second, httpMaxRetry, t.agent, t.version)
 
 	client := client.NewClient(
 		ctx,
@@ -304,15 +303,10 @@ func (t Twingate) Configure(ctx context.Context, request provider.ConfigureReque
 }
 
 // resolveRegionalURL returns the regional URL without a slash at the end.
-func resolveRegionalURL(network, url string, timeout time.Duration, retryMax int) string {
+func resolveRegionalURL(network, url string, timeout time.Duration, retryMax int, agent, version string) string {
 	originalURL := fmt.Sprintf("https://%s.%s", network, url)
-
-	retryableClient := retryablehttp.NewClient()
-	retryableClient.Logger = nil
-	retryableClient.RetryMax = retryMax
-	retryableClient.HTTPClient.Timeout = timeout
-
-	resp, err := retryableClient.StandardClient().Get(originalURL)
+	httpClient := client.NewCustomRetryableClient(timeout, retryMax, "", agent, version, "")
+	resp, err := httpClient.Get(originalURL)
 
 	defer func() {
 		if resp == nil {
@@ -320,17 +314,20 @@ func resolveRegionalURL(network, url string, timeout time.Duration, retryMax int
 		}
 
 		if err := resp.Body.Close(); err != nil {
-			log.Printf("[ERROR] Failed to close response body: %v", err)
+			log.Printf("[TWINGATE_LOG] [ERR] Failed to close response body: %v", err)
 		}
 	}()
 
 	if err != nil {
-		log.Printf("[ERROR] Failed to resolve regional URL: %v", err)
+		log.Printf("[TWINGATE_LOG] [ERR] Failed to resolve regional URL: %v", err)
 
 		return originalURL
 	}
 
-	return "https://" + resp.Request.URL.Host
+	resolvedURL := "https://" + resp.Request.URL.Host
+	log.Printf("[TWINGATE_LOG] [INFO] Resolved regional URL: %s -> %s", originalURL, resolvedURL) //nolint:gosec
+
+	return resolvedURL
 }
 
 func getCacheOptions(config types.Object) (client.CacheOptions, error) {
