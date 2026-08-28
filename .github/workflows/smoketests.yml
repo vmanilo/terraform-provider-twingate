@@ -51,7 +51,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     strategy:
-      max-parallel: 3
+      max-parallel: 1
       fail-fast: false
       matrix:
         terraform:
@@ -97,6 +97,7 @@ jobs:
     - name: Acceptance tests
       timeout-minutes: 10
       env:
+        GOFLAGS: "-parallel=2"
         TWINGATE_URL: ${{ secrets.TWINGATE_URL }}
         TWINGATE_NETWORK: ${{ secrets.TWINGATE_NETWORK }}
         TWINGATE_API_TOKEN: ${{ secrets.TWINGATE_API_TOKEN }}
@@ -122,7 +123,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     strategy:
-      max-parallel: 3
+      max-parallel: 1
       fail-fast: false
       matrix:
         tofu:
@@ -156,6 +157,7 @@ jobs:
       - name: Acceptance tests
         timeout-minutes: 10
         env:
+          GOFLAGS: "-parallel=2"
           TF_ACC_PROVIDER_NAMESPACE: "hashicorp"
           TF_ACC_PROVIDER_HOST: "registry.opentofu.org"
           TWINGATE_URL: ${{ secrets.TWINGATE_URL }}
