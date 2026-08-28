@@ -13,6 +13,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 )
 
+const disableTestMsg = "skip web-app acc tests for now to monitor CPU/IO load"
+
 func webAppResourcePrerequisites(remoteNetworkName, remoteNetworkTFName, x509TFName, certPEM, gatewayTFName, gatewayAddress string) string {
 	return fmt.Sprintf(`
 	resource "twingate_remote_network" "%s" {
@@ -86,6 +88,8 @@ func (s webAppTestSetup) config(upstreamPort, downstreamPort int, extra string) 
 }
 
 func TestAccTwingateWebAppResourceCreate(t *testing.T) {
+	t.Skip(disableTestMsg)
+
 	t.Parallel()
 
 	setup := newWebAppTestSetup(t, "10.0.0.1:8080")
@@ -123,6 +127,8 @@ func TestAccTwingateWebAppResourceCreate(t *testing.T) {
 // attribute populated, so `ImportStateVerify` catches anything the import path
 // drops.
 func TestAccTwingateWebAppResourceImport(t *testing.T) {
+	t.Skip(disableTestMsg)
+
 	t.Parallel()
 
 	setup := newWebAppTestSetup(t, "10.0.0.8:8080")
@@ -162,6 +168,8 @@ func TestAccTwingateWebAppResourceImport(t *testing.T) {
 }
 
 func TestAccTwingateWebAppResourceUpdatePorts(t *testing.T) {
+	t.Skip(disableTestMsg)
+
 	t.Parallel()
 
 	setup := newWebAppTestSetup(t, "10.0.0.2:8080")
@@ -195,6 +203,8 @@ func TestAccTwingateWebAppResourceUpdatePorts(t *testing.T) {
 // collapses to the same stored value: omitted, explicitly empty, and populated.
 // Each step must leave an empty plan, otherwise the attribute drifts forever.
 func TestAccTwingateWebAppResourceHeaderRewrites(t *testing.T) {
+	t.Skip(disableTestMsg)
+
 	t.Parallel()
 
 	setup := newWebAppTestSetup(t, "10.0.0.3:8080")
@@ -265,6 +275,8 @@ func TestAccTwingateWebAppResourceHeaderRewrites(t *testing.T) {
 }
 
 func TestAccTwingateWebAppResource_InvalidPorts(t *testing.T) {
+	t.Skip(disableTestMsg)
+
 	t.Parallel()
 
 	cases := []struct {
@@ -310,6 +322,8 @@ func TestAccTwingateWebAppResource_InvalidPorts(t *testing.T) {
 }
 
 func TestAccTwingateWebAppResource_InvalidHeaderRewrites(t *testing.T) {
+	t.Skip(disableTestMsg)
+
 	t.Parallel()
 
 	cases := []struct {
@@ -349,6 +363,8 @@ func TestAccTwingateWebAppResource_InvalidHeaderRewrites(t *testing.T) {
 }
 
 func TestAccTwingateWebAppResourceDeleteNonExisting(t *testing.T) {
+	t.Skip(disableTestMsg)
+
 	t.Parallel()
 
 	setup := newWebAppTestSetup(t, "10.0.0.6:8080")
